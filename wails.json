@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "rester",
+  "outputfilename": "rester",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "rehan-m-meizo",
+    "email": "214839400+rehan-m-meizo@users.noreply.github.com"
+  }
+}
