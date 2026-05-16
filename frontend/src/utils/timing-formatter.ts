@@ -1,4 +1,4 @@
-import { DetailedTiming } from '../state/executionStore';
+import { DetailedTiming } from '../types';
 
 export interface TimingPhase {
   label: string;

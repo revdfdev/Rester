@@ -2,8 +2,18 @@
 
 **Feature Branch**: `005-clean-architecture`  
 **Created**: 2026-05-16  
-**Status**: Draft  
+**Status**: Active  
 **Input**: User description: "Refactor and enforce clean architecture boundaries. Requirements: Wails must only act as a bridge layer, business logic must not exist inside Wails handlers, core engine must remain independently runnable without UI, parser, executor, storage, and testing systems must be isolated modules, frontend must communicate through stable service APIs, avoid circular dependencies, avoid singleton-heavy architecture, use interfaces where future extensibility matters, prepare architecture for future CLI support."
+
+## Clarifications
+
+### Session 2026-05-16
+- **Q**: How should the sidebar represent top-level folders? → **A**: Workspace Root is the Collection; subfolders are Folders.
+- **Q**: Should Save modal allow folder creation? → **A**: Yes, allow creating new subfolders during the save process.
+- **Q**: Request Name vs Filename mapping? → **A**: Strict mapping (UI Name = Filename minus extension).
+- **Q**: Environment persistence? → **A**: File-based (.json files inside the workspace).
+- **Q**: File system synchronization? → **A**: Real-time file watching (fsnotify) to auto-refresh the UI.
+
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -70,6 +80,10 @@ As a developer, I want the Wails handlers to be minimal so that the UI logic and
 - **FR-006**: System MUST NOT use global singletons for state management; instead, stateful objects should be passed via dependency injection.
 - **FR-007**: System MUST provide a stable API (Go interfaces) for the frontend to interact with.
 - **FR-008**: Architecture MUST support a future CLI by ensuring all essential features are accessible via a command-line wrapper.
+- **FR-009**: System MUST treat the Workspace Root as the primary Collection, with subfolders acting as organizational folders.
+- **FR-010**: System MUST persist Environments as JSON files within the workspace root (e.g., in an `.environments/` folder) for Git portability.
+- **FR-011**: Backend MUST implement real-time file watching to synchronize UI state with external filesystem changes.
+- **FR-012**: Save Request interaction MUST allow creating new subfolders within the selected collection path.
 
 ### Key Entities *(include if feature involves data)*
 

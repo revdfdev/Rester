@@ -23,7 +23,11 @@ func main() {
 	fmt.Println("Rester CLI - Headless Mode")
 
 	// 1. Initialize core services via container
-	container := bootstrap.NewContainer()
+	container, err := bootstrap.NewContainer("cli.db")
+	if err != nil {
+		fmt.Printf("Failed to initialize container: %v\n", err)
+		os.Exit(1)
+	}
 	
 	// Set workspace to the directory of the file for environment loading
 	dir := ""

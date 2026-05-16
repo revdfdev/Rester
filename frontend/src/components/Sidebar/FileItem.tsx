@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { FileText, Trash2, Edit2, Copy, Play } from 'lucide-react';
+import React, { useState, memo } from 'react';
+import { FileText, Trash2, Edit2, Copy, Play, FolderOpen } from 'lucide-react';
+import * as App from '../../wailsjs/go/main/App';
 import { CollectionNode } from '../../types';
 import { TreeItem } from './TreeItem';
-import { useCollectionStore } from '../../state/collectionStore';
-import { useWorkspaceStore } from '../../state/workspaceStore';
+import { useStore } from '../../state/store';
 import { ContextMenu, MenuItem } from '../common/ContextMenu';
 
 interface FileItemProps {
@@ -19,23 +19,17 @@ const METHOD_COLORS: Record<string, string> = {
   DELETE: 'text-rose-500',
 };
 
-const FileItemBase: React.FC<FileItemProps> = ({ node, indent }) => {
-  const activeId = useCollectionStore((state) => state.activeId);
-  const setActiveId = useCollectionStore((state) => state.setActiveId);
-  const addTab = useWorkspaceStore((state) => state.addTab);
+const FileItemComponent: React.FC<FileItemProps> = ({ node, indent }) => {
+  const activeId = useStore((state) => state.activeId);
+  const setActiveId = useStore((state) => state.setActiveId);
+  const openFile = useStore((state) => state.openFile);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   
   const isActive = activeId === node.id;
 
   const handleClick = () => {
     setActiveId(node.id);
-    addTab({
-      id: node.id,
-      name: node.name,
-      path: node.id, // Assuming ID is path for now
-      type: 'http',
-      isDirty: !!node.isDirty
-    });
+    openFile(node.id, node.name);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -45,6 +39,7 @@ const FileItemBase: React.FC<FileItemProps> = ({ node, indent }) => {
 
   const menuItems: MenuItem[] = [
     { label: 'Run Request', icon: <Play size={14} />, onClick: () => console.log('Run') },
+    { label: 'Open in Explorer', icon: <FolderOpen size={14} />, onClick: () => (App as any).ShowInFolder(node.id) },
     { label: 'Rename', icon: <Edit2 size={14} />, onClick: () => console.log('Rename') },
     { label: 'Duplicate', icon: <Copy size={14} />, onClick: () => console.log('Duplicate') },
     { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => console.log('Delete'), variant: 'danger' },
@@ -57,18 +52,24 @@ const FileItemBase: React.FC<FileItemProps> = ({ node, indent }) => {
         indent={indent + 1}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        className={`group font-medium tracking-tight text-[11px] ${isActive ? 'text-brand-primary' : 'text-slate-400'}`}
       >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
           {node.method ? (
-            <span className={`text-[9px] font-black w-7 text-right ${METHOD_COLORS[node.method] || 'text-slate-500'}`}>
+            <span className={`text-[9px] font-black w-8 text-right tracking-tighter ${METHOD_COLORS[node.method] || 'text-slate-500'} ${isActive ? 'brightness-125' : ''}`}>
               {node.method}
             </span>
           ) : (
-            <FileText size={14} className="text-slate-500" />
+            <FileText size={14} className={`${isActive ? 'text-brand-primary' : 'text-slate-600 group-hover:text-slate-400'}`} />
           )}
-          <span className="truncate flex-1">{node.name}</span>
+          <span className={`truncate flex-1 transition-colors ${isActive ? 'font-bold' : 'group-hover:text-slate-200'}`}>
+            {node.name}
+          </span>
           {node.isDirty && (
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-500/50 flex-shrink-0" title="Unsaved changes"></div>
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse flex-shrink-0" title="Unsaved changes"></div>
+          )}
+          {isActive && (
+            <div className="w-1 h-4 bg-brand-primary rounded-full animate-in slide-in-from-right-1 duration-300" />
           )}
         </div>
       </TreeItem>
@@ -85,4 +86,4 @@ const FileItemBase: React.FC<FileItemProps> = ({ node, indent }) => {
   );
 };
 
-export const FileItem = React.memo(FileItemBase);
+export const FileItem = memo(FileItemComponent);

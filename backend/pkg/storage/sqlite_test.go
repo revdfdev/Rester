@@ -17,16 +17,21 @@ func TestSQLiteStorage(t *testing.T) {
 	}
 	defer s.Close()
 
+	req := core.Request{
+		ID:     "req_123",
+		Method: "GET",
+		URL:    "https://api.example.com",
+	}
+
 	res := core.Response{
 		Status:     200,
 		StatusText: "OK",
 		Headers:    map[string]string{"Content-Type": "application/json"},
 		Body:       `{"id": 1}`,
-		RequestRef: "req_123",
 	}
 
 	// Test Save
-	err = s.SaveHistory(context.Background(), res)
+	err = s.SaveHistory(context.Background(), req, res)
 	if err != nil {
 		t.Fatalf("SaveHistory failed: %v", err)
 	}
@@ -41,7 +46,7 @@ func TestSQLiteStorage(t *testing.T) {
 		t.Errorf("Expected 1 history item, got %d", len(history))
 	}
 
-	if history[0].RequestRef != "req_123" {
-		t.Errorf("Expected request_ref req_123, got %s", history[0].RequestRef)
+	if history[0].Response.Status != 200 {
+		t.Errorf("Expected status 200, got %d", history[0].Response.Status)
 	}
 }

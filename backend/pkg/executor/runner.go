@@ -2,21 +2,20 @@ package executor
 
 import (
 	"context"
-	"fmt"
 	"rester/backend/pkg/core"
 )
 
 type Runner struct {
-	parser   core.ParserService
-	executor core.ExecutionService
-	env      core.EnvironmentService
+	parser      core.ParserService
+	executor    core.ExecutionService
+	environment core.EnvironmentService
 }
 
 func NewRunner(p core.ParserService, e core.ExecutionService, env core.EnvironmentService) *Runner {
 	return &Runner{
-		parser:   p,
-		executor: e,
-		env:      env,
+		parser:      p,
+		executor:    e,
+		environment: env,
 	}
 }
 
@@ -24,61 +23,32 @@ func (r *Runner) RunFile(ctx context.Context, path string, envName string) (*cor
 	// 1. Parse the file
 	fileNode, err := r.parser.ParseFile(ctx, path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse file: %w", err)
+		return nil, err
 	}
 
 	if len(fileNode.Requests) == 0 {
-		return nil, fmt.Errorf("no requests found in file")
+		return nil, core.ErrNotFound
 	}
 
-	// 2. Load environment
-	var environment core.Environment
+	// 2. Load environment if specified
+	var env core.Environment
 	if envName != "" {
-		envPtr, err := r.env.GetEnvironmentByName(ctx, envName)
-		if err != nil {
-			return nil, err
-		}
-		environment = *envPtr
-	} else {
-		envPtr, _ := r.env.GetActiveEnvironment(ctx)
-		if envPtr != nil {
-			environment = *envPtr
+		if e, err := r.environment.GetEnvironmentByName(ctx, envName); err == nil && e != nil {
+			env = *e
 		}
 	}
 
-	// 3. Merge variables (file-local variables take precedence)
-	for _, v := range fileNode.Variables {
-		if environment.Variables == nil {
-			environment.Variables = make(map[string]string)
-		}
-		environment.Variables[v.Name] = v.Value
-	}
-
-	// 4. Execute the first request (standard for CLI runner)
+	// 3. Just run the first request for now in CLI
 	reqNode := fileNode.Requests[0]
-	
-	// Map RequestNode to core.Request
-	headers := make(map[string]string)
-	for _, h := range reqNode.Headers {
-		headers[h.Key] = h.Value
-	}
-
 	req := core.Request{
-		ID:               reqNode.ID,
-		Name:             reqNode.Name,
-		Method:           reqNode.Method,
-		URL:              reqNode.URL,
-		Headers:          headers,
-		Body:             reqNode.Body,
-		PreRequestScript: "", // Map these if needed
-		TestScript:       "",
+		Method:  reqNode.Method,
+		URL:     reqNode.URL,
+		Headers: make(map[string]string),
+		Body:    reqNode.Body,
 	}
-	if reqNode.PreRequestScript != nil {
-		req.PreRequestScript = reqNode.PreRequestScript.Content
-	}
-	if reqNode.TestScript != nil {
-		req.TestScript = reqNode.TestScript.Content
+	for _, h := range reqNode.Headers {
+		req.Headers[h.Key] = h.Value
 	}
 
-	return r.executor.Execute(ctx, req, environment)
+	return r.executor.Execute(ctx, req, env, core.ExecutionOptions{})
 }

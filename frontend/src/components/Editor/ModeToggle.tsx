@@ -1,9 +1,10 @@
 import React from 'react';
 import { Layout, Code } from 'lucide-react';
-import { useEditorStore } from '../../state/editorStore';
+import { useStore } from '../../state/store';
 
 export const ModeToggle: React.FC = () => {
-  const { mode, setMode } = useEditorStore();
+  const mode = useStore((state) => state.editorMode);
+  const setMode = useStore((state) => state.setEditorMode);
 
   return (
     <div className="flex items-center bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">

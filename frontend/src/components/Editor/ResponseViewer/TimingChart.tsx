@@ -1,5 +1,5 @@
 import React from 'react';
-import { DetailedTiming } from '../../../state/executionStore';
+import { DetailedTiming } from '../../../types';
 import { formatTimingPhases } from '../../../utils/timing-formatter';
 import { Clock } from 'lucide-react';
 

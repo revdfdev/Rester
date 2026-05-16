@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Play, ShieldCheck, Code2 } from 'lucide-react';
-import { useEditorStore } from '../../../state/editorStore';
+import { useStore } from '../../../state/store';
 
 export const ScriptTabs: React.FC = () => {
-  const { requestBlocks, activeBlockIndex, updateBlock } = useEditorStore();
+  const requestBlocks = useStore((state) => state.requestBlocks);
+  const activeBlockIndex = useStore((state) => state.activeBlockIndex);
+  const updateBlock = useStore((state) => state.updateBlock);
   const activeBlock = requestBlocks[activeBlockIndex];
   const [activeTab, setActiveTab] = useState<'pre' | 'test'>('pre');
 

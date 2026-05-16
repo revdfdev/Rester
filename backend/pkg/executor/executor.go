@@ -3,6 +3,7 @@ package executor
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,122 +13,147 @@ import (
 	"time"
 )
 
-type Executor struct {
-	client *http.Client
+type HttpExecutor struct {
+	client   *http.Client
+	registry *CancellationRegistry
 }
 
-func NewExecutor() *Executor {
-	return &Executor{
+func NewHttpExecutor() *HttpExecutor {
+	return &HttpExecutor{
 		client: &http.Client{
-			// Redirect policy is handled per-request in the Execute method if needed,
-			// but for now we use a default client.
+			Timeout: 30 * time.Second,
 		},
+		registry: NewCancellationRegistry(),
 	}
 }
 
-func (e *Executor) Execute(ctx context.Context, req core.Request, env core.Environment) (*core.Response, error) {
-	// 1. Resolve variables in URL, Headers, Body (T014)
-	resolvedURL := resolve(req.URL, env.Variables)
-	resolvedBody := resolve(req.Body, env.Variables)
+func (e *HttpExecutor) Execute(ctx context.Context, req core.Request, env core.Environment, opts core.ExecutionOptions) (*core.Response, error) {
+	// Setup request context with cancellation
+	execCtx, cancel := context.WithCancel(ctx)
+	if opts.TimeoutMs > 0 {
+		execCtx, cancel = context.WithTimeout(ctx, time.Duration(opts.TimeoutMs)*time.Millisecond)
+	}
+	defer cancel()
+
+	if opts.RequestID != "" {
+		e.registry.Register(opts.RequestID, cancel)
+		defer e.registry.Unregister(opts.RequestID)
+	}
+
+	start := time.Now()
+	var logs []string
+
+	// Setup tracing
+	var dnsStart, tcpStart, tlsStart, ttfbStart time.Time
+	var dnsDone, tcpDone, tlsDone, ttfbDone time.Duration
+
+	trace := &httptrace.ClientTrace{
+		DNSStart: func(_ httptrace.DNSStartInfo) {
+			dnsStart = time.Now()
+			logs = append(logs, "DNS Lookup started...")
+		},
+		DNSDone: func(info httptrace.DNSDoneInfo) {
+			dnsDone = time.Since(dnsStart)
+			logs = append(logs, fmt.Sprintf("DNS Lookup finished: %v", dnsDone))
+		},
+		ConnectStart: func(_, _ string) {
+			tcpStart = time.Now()
+			logs = append(logs, "Connecting to server...")
+		},
+		ConnectDone: func(_, _ string, err error) {
+			tcpDone = time.Since(tcpStart)
+			if err != nil {
+				logs = append(logs, fmt.Sprintf("Connection failed: %v", err))
+			} else {
+				logs = append(logs, fmt.Sprintf("Connected: %v", tcpDone))
+			}
+		},
+		TLSHandshakeStart: func() {
+			tlsStart = time.Now()
+			logs = append(logs, "TLS Handshake started...")
+		},
+		TLSHandshakeDone: func(_ tls.ConnectionState, err error) {
+			tlsDone = time.Since(tlsStart)
+			if err != nil {
+				logs = append(logs, fmt.Sprintf("TLS Handshake failed: %v", err))
+			} else {
+				logs = append(logs, fmt.Sprintf("TLS Handshake finished: %v", tlsDone))
+			}
+		},
+		GotFirstResponseByte: func() {
+			ttfbDone = time.Since(ttfbStart)
+			logs = append(logs, fmt.Sprintf("First byte received (TTFB): %v", ttfbDone))
+		},
+	}
+
+	// 1. Resolve variables
+	resolvedURL := ResolveVariables(req.URL, env.Variables)
+	resolvedHeaders := ResolveMap(req.Headers, env.Variables)
+	resolvedBody := ResolveVariables(req.Body, env.Variables)
 
 	// 2. Prepare HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, req.Method, resolvedURL, strings.NewReader(resolvedBody))
+	httpReq, err := http.NewRequestWithContext(execCtx, req.Method, resolvedURL, strings.NewReader(resolvedBody))
 	if err != nil {
 		return nil, err
 	}
 
-	for k, v := range req.Headers {
-		httpReq.Header.Set(k, resolve(v, env.Variables))
+	for k, v := range resolvedHeaders {
+		httpReq.Header.Set(k, v)
 	}
 
-	// 3. Setup Timing Trace
-	var dnsStart, tcpStart, tlsStart, ttfbStart time.Time
-	detailed := &core.DetailedTiming{}
-
-	trace := &httptrace.ClientTrace{
-		DNSStart: func(_ httptrace.DNSStartInfo) { dnsStart = time.Now() },
-		DNSDone:  func(_ httptrace.DNSDoneInfo) { detailed.DNS = time.Since(dnsStart).Milliseconds() },
-		ConnectStart: func(_, _ string) { tcpStart = time.Now() },
-		ConnectDone: func(_, _ string, _ error) { detailed.TCP = time.Since(tcpStart).Milliseconds() },
-		TLSHandshakeStart: func() { tlsStart = time.Now() },
-		TLSHandshakeDone:  func(_ tls.ConnectionState, _ error) { detailed.TLS = time.Since(tlsStart).Milliseconds() },
-		GotFirstResponseByte: func() { detailed.TTFB = time.Since(ttfbStart).Milliseconds() },
-	}
+	ttfbStart = time.Now()
 	httpReq = httpReq.WithContext(httptrace.WithClientTrace(httpReq.Context(), trace))
 
-	// 4. Run Pre-request Script (T009)
-	if req.PreRequestScript != "" {
-		runtime := NewScriptRuntime()
-		_, err := runtime.Run(ctx, req.PreRequestScript, req, nil)
-		if err != nil {
-			fmt.Printf("Pre-request script error: %v\n", err)
-		}
-	}
-
-	// 5. Execute
-	start := time.Now()
-	ttfbStart = start
+	logs = append(logs, fmt.Sprintf("Sending %s %s", req.Method, req.URL))
+	
 	resp, err := e.client.Do(httpReq)
 	if err != nil {
-		return &core.Response{
-			Error:      err.Error(),
-			RequestRef: req.ID,
-		}, nil
+		if errors.Is(execCtx.Err(), context.DeadlineExceeded) {
+			return nil, core.ErrTimeout
+		}
+		if errors.Is(execCtx.Err(), context.Canceled) {
+			return nil, core.ErrCancelled
+		}
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	// 6. Capture Timing
-	total := time.Since(start).Milliseconds()
-	downloadStart := time.Now()
-
-	// 7. Read Body
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-	detailed.Download = time.Since(downloadStart).Milliseconds()
 
-	// 8. Map to core.Response
+	total := time.Since(start)
+	logs = append(logs, fmt.Sprintf("Request complete. Total duration: %v", total))
+
 	headers := make(map[string]string)
 	for k, v := range resp.Header {
 		headers[k] = strings.Join(v, ", ")
 	}
 
-	coreRes := &core.Response{
+	return &core.Response{
 		Status:     resp.StatusCode,
 		StatusText: resp.Status,
 		Headers:    headers,
 		Body:       string(bodyBytes),
 		Timing: core.Timing{
-			Start:    start,
-			Total:    total,
-			Detailed: detailed,
+			Start: start,
+			Total: total.Milliseconds(),
+			Detailed: &core.DetailedTiming{
+				DNS:      dnsDone.Milliseconds(),
+				TCP:      tcpDone.Milliseconds(),
+				TLS:      tlsDone.Milliseconds(),
+				TTFB:     ttfbDone.Milliseconds(),
+				Download: time.Since(start).Milliseconds() - ttfbDone.Milliseconds(),
+			},
 		},
-		RequestRef: req.ID,
-	}
-
-	// 8. Run Test Script (T008, T010)
-	if req.TestScript != "" {
-		runtime := NewScriptRuntime()
-		testResults, err := runtime.Run(ctx, req.TestScript, req, coreRes)
-		if err != nil {
-			coreRes.Error = fmt.Sprintf("Test script error: %v", err)
-		}
-		coreRes.TestResults = testResults
-	}
-
-	return coreRes, nil
+		Logs: logs,
+	}, nil
 }
 
-func (e *Executor) Cancel(ctx context.Context, requestID string) error {
-	// Cancellation is handled by the context passed to Execute.
-	return nil
-}
-
-func resolve(input string, variables map[string]string) string {
-	for k, v := range variables {
-		placeholder := "{{" + k + "}}"
-		input = strings.ReplaceAll(input, placeholder, v)
+func (e *HttpExecutor) Cancel(ctx context.Context, requestID string) error {
+	if e.registry.Cancel(requestID) {
+		return nil
 	}
-	return input
+	return core.ErrNotFound
 }

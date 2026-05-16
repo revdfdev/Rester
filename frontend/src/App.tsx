@@ -1,15 +1,43 @@
 import React from 'react';
-import { useWorkspaceStore } from './state/workspaceStore';
+import { useStore, useTheme, useActiveTab } from './state/store';
 import { Layout } from './components/Layout/Layout';
 import { RequestEditor } from './components/Editor/RequestEditor';
 import { ResponseViewer } from './components/Editor/ResponseViewer';
+import { WelcomeScreen } from './components/Editor/WelcomeScreen';
+import { initSettingsPersistence } from './utils/config-bridge';
+import { initHistoryPersistence } from './utils/history-persistence';
+import { SettingsModal } from './components/Settings/SettingsModal';
 
 const App: React.FC = () => {
-  const tabs = useWorkspaceStore((state) => state.tabs);
-  const activeTabId = useWorkspaceStore((state) => state.activeTabId);
-  const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
-  const closeTab = useWorkspaceStore((state) => state.closeTab);
+  // Unified store selectors
+  const tabs = useStore((state) => state.tabs);
+  const activeTabId = useStore((state) => state.activeTabId);
+  const setActiveTab = useStore((state) => state.setActiveTab);
+  const closeTab = useStore((state) => state.closeTab);
+  const saveTab = useStore((state) => state.saveTab);
+  const isSettingsOpen = useStore((state) => state.isSettingsOpen);
+  const activeTab = useActiveTab();
+  const updateTabContent = useStore((state) => state.updateTabContent);
+  const theme = useTheme();
 
+  React.useEffect(() => {
+    initSettingsPersistence();
+    initHistoryPersistence();
+  }, []);
+
+  // Theme synchronization
+  React.useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    if (theme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(theme);
+    }
+  }, [theme]);
+
+  // Global Keyboard Shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!e.ctrlKey) return;
@@ -18,6 +46,12 @@ const App: React.FC = () => {
       if (e.key === 'w' || e.key === 'W') {
         e.preventDefault();
         if (activeTabId) closeTab(activeTabId);
+      }
+
+      // Ctrl + S: Save Active Tab
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        if (activeTabId) saveTab(activeTabId);
       }
 
       // Ctrl + Tab / Ctrl + Shift + Tab: Cycle Tabs
@@ -46,24 +80,19 @@ const App: React.FC = () => {
   }, [tabs, activeTabId, setActiveTab, closeTab]);
 
   return (
-    <Layout responseArea={<ResponseViewer />}>
-      {activeTabId ? (
+    <>
+      <Layout responseArea={<ResponseViewer />}>
+      {activeTab ? (
         <RequestEditor 
-          content={`// Content for ${activeTabId}`} 
-          onChange={(val) => console.log(val)} 
+          content={activeTab.content || ''} 
+          onChange={(val) => updateTabContent(activeTab.id, val)} 
         />
       ) : (
-        <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-dark-900/50">
-          <div className="w-16 h-16 bg-brand-primary/10 rounded-2xl flex items-center justify-center mb-6 border border-brand-primary/20">
-             <div className="w-8 h-8 bg-brand-primary rounded-lg shadow-[0_0_20px_rgba(56,189,248,0.4)]"></div>
-          </div>
-          <h1 className="text-2xl font-bold text-slate-200 mb-2 tracking-tight">Ready to Request</h1>
-          <p className="text-slate-500 max-w-sm text-sm leading-relaxed">
-            Select a request from the sidebar or press <kbd className="bg-dark-800 px-1.5 py-0.5 rounded border border-dark-700 text-xs text-slate-400 font-sans mx-1">Ctrl+N</kbd> to create a new session.
-          </p>
-        </div>
+        <WelcomeScreen />
       )}
-    </Layout>
+      </Layout>
+      <SettingsModal />
+    </>
   );
 };
 

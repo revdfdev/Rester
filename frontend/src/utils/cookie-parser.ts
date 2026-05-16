@@ -1,4 +1,4 @@
-import { Cookie } from '../state/executionStore';
+import { Cookie } from '../types';
 
 /**
  * Parses a Set-Cookie header string into a Cookie object.

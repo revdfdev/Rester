@@ -1,4 +1,4 @@
-import { RequestBlock } from '../state/editorStore';
+import { RequestBlock } from '../types';
 
 export const serializeHttpFile = (blocks: RequestBlock[]): string => {
   return blocks.map((block) => {

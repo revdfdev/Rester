@@ -22,6 +22,8 @@
 - Monaco Editor: latest
 - Zustand: latest
 - fsnotify: latest (added for workspace watching)
+- react-virtuoso: latest (added for high-performance JSON rendering)
+- Web Workers: utilized for background JSON processing
 
 ### Storage
 - modernc.org/sqlite: latest (CGO-free SQLite driver)
@@ -44,9 +46,13 @@ cmd/
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| Execute | app.Execute | Executes an HTTP request |
+| Execute | app.Execute | Executes an HTTP request with variable resolution |
 | GetCollections | app.GetCollections | Lists available collections |
 | SetActiveEnv | app.SetActiveEnv | Switches active environment |
+| GetWorkspaceMetadata | app.GetWorkspaceMetadata | Loads persistent UI state (tabs, expanded folders) |
+| SaveWorkspaceMetadata | app.SaveWorkspaceMetadata | Persists UI state to the workspace folder |
+| ReadFile | app.ReadFile | Reads file content from local filesystem |
+| SaveFile | app.SaveFile | Writes file content to local filesystem |
 
 ## Runtime Dependency Graph
 
@@ -69,6 +75,9 @@ cmd/
   - Purpose: Parsed element of an .http file
 - **Environment** (defined in 001-local-api-client):
   - Purpose: Variable substitution set
+- **Tab & WorkspaceMetadata** (added by 015-response-viewer):
+  - Purpose: Persistent UI session state and open editor tabs
+  - Key fields: ID, Path, IsDirty, OpenTabs, ActiveTabId
 
 ## Domain Glossary
 
@@ -97,13 +106,13 @@ cmd/
 
 ## Recent Features
 
+- 018-frontend-refactor: Major refactor establishing a design-system-driven architecture with a unified Zustand slice-based store and core UI primitives.
+- 017-settings-ui: Implemented a high-fidelity Settings UI with persistent configuration and real-time theme/editor synchronization.
 - 007-performance-optimization: Optimized for low memory and fast startup via lazy loading and virtualization
 - 006-frontend-state-management: Refactored frontend state using Zustand partitioned stores
-- 005-clean-architecture: Refactored and enforced clean architecture boundaries
-- 004-http-execution-engine: Implemented HTTP execution with timeout and cookies
-- 003-monaco-http-editor: Implemented Dual-Mode Editor (Form + Monaco) with real-time bidirectional sync
-- 002-http-parser-ast: Implemented .http lexer and parser
-- 001-local-api-client: Initial setup and core client features
+- 015-response-viewer: Implemented a production-grade response rendering system with virtualization, background JSON processing, and 1MB+ payload safety.
+- 004-http-execution-engine: Finalized the E2E execution flow with high-performance variable resolution and workspace-relative persistence.
+- 005-clean-architecture: Refactored and enforced clean architecture boundaries and fixed SQLite concurrency issues.
 
 ## Configuration
 

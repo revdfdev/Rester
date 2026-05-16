@@ -10,3 +10,21 @@ vendor/
 .DS_Store
 .vscode/
 .idea/
+
+# SQLite
+*.db
+*.db-shm
+*.db-wal
+
+# Wails/Build
+build/bin
+frontend/dist/
+node_modules/
+vendor/
+
+# Logs/Debug
+*.log
+.env*
+*.exe
+*.test
+*.out

@@ -1,21 +1,21 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { CollectionNode } from '../../types';
 import { FolderItem } from './FolderItem';
 import { FileItem } from './FileItem';
-import { useCollectionStore } from '../../state/collectionStore';
+import { useStore } from '../../state/store';
 
 interface TreeExplorerProps {
   nodes: CollectionNode[];
   indent?: number;
 }
 
-export const TreeExplorer: React.FC<TreeExplorerProps> = ({ nodes, indent = 0 }) => {
-  const expandedIds = useCollectionStore((state) => state.expandedIds);
+const TreeExplorerComponent: React.FC<TreeExplorerProps> = ({ nodes, indent = 0 }) => {
+  const expandedIds = useStore((state) => state.expandedIds);
 
   return (
-    <div className="flex flex-col py-1">
+    <div className="flex flex-col py-1 animate-in fade-in duration-300">
       {nodes.map((node) => {
-        const isFolder = node.type === 'folder';
+        const isFolder = node.type === 'folder' || node.type === 'collection';
         const isExpanded = isFolder && expandedIds.has(node.id);
 
         return (
@@ -35,3 +35,5 @@ export const TreeExplorer: React.FC<TreeExplorerProps> = ({ nodes, indent = 0 })
     </div>
   );
 };
+
+export const TreeExplorer = memo(TreeExplorerComponent);

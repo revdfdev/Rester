@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -37,14 +38,69 @@ func (m *WorkspaceManager) GetCollections(ctx context.Context) ([]core.Collectio
 	return m.scanDirectory(m.currentPath)
 }
 
-func (m *WorkspaceManager) CreateRequest(ctx context.Context, collectionPath string, name string) (core.Request, error) {
-	// Implementation for creating a new .http file or adding to one
-	return core.Request{}, fmt.Errorf("not implemented")
+func (m *WorkspaceManager) ReadFile(ctx context.Context, path string) (string, error) {
+	bytes, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
 
-func (m *WorkspaceManager) SaveRequest(ctx context.Context, req core.Request) error {
-	// Implementation for saving changes back to the .http file
-	return fmt.Errorf("not implemented")
+func (m *WorkspaceManager) SaveFile(ctx context.Context, path string, content string) error {
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
+func (m *WorkspaceManager) CreateFolder(ctx context.Context, path string) error {
+	return os.MkdirAll(path, 0755)
+}
+
+func (m *WorkspaceManager) Delete(ctx context.Context, path string) error {
+	return os.RemoveAll(path)
+}
+
+func (m *WorkspaceManager) Rename(ctx context.Context, oldPath string, newPath string) error {
+	return os.Rename(oldPath, newPath)
+}
+
+func (m *WorkspaceManager) GetWorkspaceMetadata(ctx context.Context) (*core.WorkspaceMetadata, error) {
+	if m.currentPath == "" {
+		return nil, fmt.Errorf("no workspace opened")
+	}
+
+	metaPath := filepath.Join(m.currentPath, ".rester", "metadata.json")
+	bytes, err := os.ReadFile(metaPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return &core.WorkspaceMetadata{}, nil
+		}
+		return nil, err
+	}
+
+	var meta core.WorkspaceMetadata
+	if err := json.Unmarshal(bytes, &meta); err != nil {
+		return nil, err
+	}
+
+	return &meta, nil
+}
+
+func (m *WorkspaceManager) SaveWorkspaceMetadata(ctx context.Context, meta core.WorkspaceMetadata) error {
+	if m.currentPath == "" {
+		return fmt.Errorf("no workspace opened")
+	}
+
+	metaDir := filepath.Join(m.currentPath, ".rester")
+	if err := os.MkdirAll(metaDir, 0755); err != nil {
+		return err
+	}
+
+	metaPath := filepath.Join(metaDir, "metadata.json")
+	bytes, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(metaPath, bytes, 0644)
 }
 
 func (m *WorkspaceManager) scanDirectory(path string) ([]core.Collection, error) {
@@ -57,35 +113,41 @@ func (m *WorkspaceManager) scanDirectory(path string) ([]core.Collection, error)
 	var requests []core.Request
 
 	for _, entry := range entries {
-		fullPath := filepath.Join(path, entry.Name())
+		name := entry.Name()
+		fullPath := filepath.Join(path, name)
+
 		if entry.IsDir() {
-			if entry.Name() == ".git" || entry.Name() == "node_modules" {
+			// Skip noisy directories
+			if name == ".git" || name == "node_modules" || name == ".rester" || name == "dist" || name == "build" {
 				continue
 			}
+
 			subCols, err := m.scanDirectory(fullPath)
-			if err == nil && len(subCols) > 0 {
-				collections = append(collections, core.Collection{
-					Path:    fullPath,
-					Name:    entry.Name(),
-					Folders: subCols,
-				})
+			if err != nil {
+				continue
 			}
-		} else if strings.HasSuffix(entry.Name(), ".http") {
+
+			// Add as a folder if it has content (or we can always add it)
+			collections = append(collections, core.Collection{
+				Path:    fullPath,
+				Name:    name,
+				Folders: subCols,
+			})
+		} else if strings.HasSuffix(name, ".http") {
 			requests = append(requests, core.Request{
 				ID:   fullPath,
-				Name: entry.Name(),
-				URL:  fullPath, // Using URL to store path for now
+				Name: strings.TrimSuffix(name, ".http"),
+				URL:  fullPath,
 			})
 		}
 	}
 
-	if len(requests) > 0 || len(collections) > 0 {
-		return append(collections, core.Collection{
+	return []core.Collection{
+		{
 			Path:     path,
 			Name:     filepath.Base(path),
 			Requests: requests,
-		}), nil
-	}
-
-	return collections, nil
+			Folders:  collections,
+		},
+	}, nil
 }

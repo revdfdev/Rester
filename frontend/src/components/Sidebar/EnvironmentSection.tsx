@@ -1,11 +1,11 @@
 import React from 'react';
 import { Database, ChevronDown, Globe } from 'lucide-react';
-import { useCollectionStore } from '../../state/collectionStore';
+import { useStore } from '../../state/store';
 
 export const EnvironmentSection: React.FC = () => {
-  const environments = useCollectionStore((state) => state.environments);
-  const activeEnvId = useCollectionStore((state) => state.activeEnvId);
-  const setActiveEnvId = useCollectionStore((state) => state.setActiveEnvId);
+  const environments = useStore((state) => state.environments);
+  const activeEnvId = useStore((state) => state.activeEnvId);
+  const setActiveEnvId = useStore((state) => state.setActiveEnvId);
 
   return (
     <div className="border-t border-dark-900 bg-dark-950/20">

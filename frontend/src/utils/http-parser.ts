@@ -1,4 +1,4 @@
-import { RequestBlock, KeyValue, BodyType } from '../state/editorStore';
+import { RequestBlock, KeyValue, BodyType } from '../types';
 
 export const parseHttpFile = (content: string): RequestBlock[] => {
   const blocks: RequestBlock[] = [];

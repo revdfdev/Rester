@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Play, MoreHorizontal, XCircle, Ban } from 'lucide-react';
-import { useWorkspaceStore } from '../../state/workspaceStore';
+import { useStore } from '../../state/store';
 import { TabItem } from './TabItem';
 import { ContextMenu, MenuItem } from '../common/ContextMenu';
 
 export const TabBar: React.FC = () => {
-  const tabs = useWorkspaceStore((state) => state.tabs);
-  const activeTabId = useWorkspaceStore((state) => state.activeTabId);
-  const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
-  const closeTab = useWorkspaceStore((state) => state.closeTab);
-  const closeAllTabs = useWorkspaceStore((state) => state.closeAllTabs);
-  const closeOtherTabs = useWorkspaceStore((state) => state.closeOtherTabs);
+  const tabs = useStore((state) => state.tabs);
+  const activeTabId = useStore((state) => state.activeTabId);
+  const setActiveTab = useStore((state) => state.setActiveTab);
+  const closeTab = useStore((state) => state.closeTab);
+  const closeAllTabs = useStore((state) => state.closeAllTabs);
+  const closeOtherTabs = useStore((state) => state.closeOtherTabs);
 
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, tabId: string | null } | null>(null);
 

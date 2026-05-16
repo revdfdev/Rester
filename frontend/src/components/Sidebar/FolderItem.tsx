@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { ChevronRight, Folder, FolderOpen, Plus, FolderPlus, Trash2, Edit2 } from 'lucide-react';
 import { CollectionNode } from '../../types';
 import { TreeItem } from './TreeItem';
-import { useCollectionStore } from '../../state/collectionStore';
+import { useStore } from '../../state/store';
 import { ContextMenu, MenuItem } from '../common/ContextMenu';
 
 interface FolderItemProps {
@@ -10,9 +10,9 @@ interface FolderItemProps {
   indent: number;
 }
 
-const FolderItemBase: React.FC<FolderItemProps> = ({ node, indent }) => {
-  const isExpanded = useCollectionStore((state) => state.expandedIds.has(node.id));
-  const toggleExpand = useCollectionStore((state) => state.toggleExpand);
+const FolderItemComponent: React.FC<FolderItemProps> = ({ node, indent }) => {
+  const isExpanded = useStore((state) => state.expandedIds.has(node.id));
+  const toggleExpand = useStore((state) => state.toggleExpand);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -33,18 +33,21 @@ const FolderItemBase: React.FC<FolderItemProps> = ({ node, indent }) => {
         indent={indent} 
         onClick={() => toggleExpand(node.id)}
         onContextMenu={handleContextMenu}
-        className="font-medium tracking-tight"
+        className={`group font-bold tracking-tight text-[11px] ${isExpanded ? 'text-slate-200' : 'text-slate-500'}`}
       >
         <ChevronRight 
           size={14} 
-          className={`transition-transform duration-200 ${isExpanded ? 'rotate-90 text-slate-400' : 'text-slate-600'}`} 
+          className={`transition-transform duration-300 ${isExpanded ? 'rotate-90 text-brand-primary' : 'text-slate-600 group-hover:text-slate-400'}`} 
         />
-        {isExpanded ? (
-          <FolderOpen size={16} className="text-brand-primary/60" />
-        ) : (
-          <Folder size={16} className="text-brand-primary/40" />
-        )}
-        <span className="truncate">{node.name}</span>
+        <div className="relative">
+          {isExpanded ? (
+            <FolderOpen size={16} className="text-brand-primary animate-in zoom-in-95 duration-300" />
+          ) : (
+            <Folder size={16} className="text-slate-600 group-hover:text-brand-primary/60 transition-colors" />
+          )}
+          {isExpanded && <div className="absolute inset-0 bg-brand-primary/20 blur-md rounded-full -z-10 animate-pulse" />}
+        </div>
+        <span className="truncate uppercase tracking-wider">{node.name}</span>
       </TreeItem>
 
       {contextMenu && (
@@ -59,4 +62,4 @@ const FolderItemBase: React.FC<FolderItemProps> = ({ node, indent }) => {
   );
 };
 
-export const FolderItem = React.memo(FolderItemBase);
+export const FolderItem = memo(FolderItemComponent);

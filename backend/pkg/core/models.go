@@ -57,27 +57,33 @@ type ScriptBlock struct {
 	LineRange [2]int `json:"line_range"`
 }
 
-// AST represents the legacy result of parsing a .http file (kept for compat)
-type AST struct {
-	File *FileNode `json:"file,omitempty"`
-	Nodes []ASTNode `json:"nodes"`
-}
-
-// ASTNode represents a legacy element in the AST
-type ASTNode struct {
-	Type      string                 `json:"type"`
-	Content   string                 `json:"content"`
-	LineRange [2]int                 `json:"line_range"`
-	Variables []string               `json:"variables,omitempty"`
-	Metadata  map[string]interface{} `json:"metadata,omitempty"`
-}
-
 // Collection represents a group of requests mapped to a filesystem directory
 type Collection struct {
 	Path     string       `json:"path"`
 	Name     string       `json:"name"`
 	Requests []Request    `json:"requests,omitempty"`
 	Folders  []Collection `json:"folders,omitempty"`
+}
+
+// Tab represents an open editor tab state
+type Tab struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	Type         string `json:"type"` // http, graphql, grpc
+	Method       string `json:"method,omitempty"`
+	IsDirty      bool   `json:"isDirty"`
+	LastAccessed int64  `json:"lastAccessed"`
+	Content      string `json:"content,omitempty"`
+}
+
+// WorkspaceMetadata represents UI and app state specific to a workspace
+type WorkspaceMetadata struct {
+	ExpandedFolders []string `json:"expandedFolders"`
+	PinnedRequests  []string `json:"pinnedRequests"`
+	OpenTabs        []Tab    `json:"openTabs"`
+	ActiveTabID     string   `json:"activeTabId"`
+	LastOpenedAt    string   `json:"lastOpenedAt"`
 }
 
 // Environment represents a named set of variables
@@ -97,6 +103,7 @@ type Response struct {
 	Error       string            `json:"error,omitempty"`
 	RequestRef  string            `json:"request_ref,omitempty"`
 	TestResults []TestResult      `json:"test_results,omitempty"`
+	Logs        []string          `json:"logs,omitempty"` // Execution logs
 }
 
 // TestResult represents the outcome of a single test case
@@ -112,6 +119,14 @@ type Timing struct {
 	TTFB     int64           `json:"ttfb"`  // Milliseconds
 	Total    int64           `json:"total"` // Milliseconds
 	Detailed *DetailedTiming `json:"detailed,omitempty"`
+}
+
+// HistoryEntry combines request and response for history tracking
+type HistoryEntry struct {
+	ID        int64     `json:"id"`
+	Request   Request   `json:"request"`
+	Response  Response  `json:"response"`
+	CreatedAt string    `json:"created_at"`
 }
 
 // DetailedTiming contains granular performance metrics

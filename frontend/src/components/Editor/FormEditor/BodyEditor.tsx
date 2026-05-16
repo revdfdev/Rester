@@ -1,11 +1,14 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
 import { KeyValueGrid } from './KeyValueGrid';
-import { useEditorStore, KeyValue } from '../../../state/editorStore';
+import { useStore } from '../../../state/store';
+import { KeyValue } from '../../../types';
 import { Trash2 } from 'lucide-react';
 
 export const BodyEditor: React.FC = () => {
-  const { requestBlocks, activeBlockIndex, updateBlock } = useEditorStore();
+  const requestBlocks = useStore((state) => state.requestBlocks);
+  const activeBlockIndex = useStore((state) => state.activeBlockIndex);
+  const updateBlock = useStore((state) => state.updateBlock);
   const activeBlock = requestBlocks[activeBlockIndex];
 
   if (!activeBlock) return null;

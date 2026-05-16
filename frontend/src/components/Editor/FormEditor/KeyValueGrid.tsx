@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Plus, Trash2, CheckCircle2, Circle, FileUp } from 'lucide-react';
-import { KeyValue } from '../../../state/editorStore';
+import { KeyValue } from '../../../types';
 
 interface KeyValueGridProps {
   title: string;

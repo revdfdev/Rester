@@ -1,9 +1,11 @@
 import React from 'react';
 import { ChevronRight, FileCode2 } from 'lucide-react';
-import { useEditorStore } from '../../state/editorStore';
+import { useStore } from '../../state/store';
 
 export const RequestNavigator: React.FC = () => {
-  const { requestBlocks, activeBlockIndex, setActiveBlockIndex } = useEditorStore();
+  const requestBlocks = useStore((state) => state.requestBlocks);
+  const activeBlockIndex = useStore((state) => state.activeBlockIndex);
+  const setActiveBlockIndex = useStore((state) => state.setActiveBlockIndex);
 
   if (requestBlocks.length <= 1) return null;
 

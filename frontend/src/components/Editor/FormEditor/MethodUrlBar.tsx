@@ -1,20 +1,18 @@
 import React from 'react';
-import { useEditorStore } from '../../../state/editorStore';
-import { useExecutionStore } from '../../../state/executionStore';
-import { useEnvironmentStore } from '../../../state/environmentStore';
-import { Execute } from '../../../wailsjs/go/main/App';
-import { Loader2, Send } from 'lucide-react';
-import { parseCookies } from '../../../utils/cookie-parser';
+import { useStore } from '../../../state/store';
+import { Loader2, Send, XCircle } from 'lucide-react';
 
 const METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'];
 
 export const MethodUrlBar: React.FC = () => {
-  const { requestBlocks, activeBlockIndex, updateBlock } = useEditorStore();
-  const { setLoading, setResult, loading } = useExecutionStore();
-  const { activeEnv, environments } = useEnvironmentStore();
+  const requestBlocks = useStore((state) => state.requestBlocks);
+  const activeBlockIndex = useStore((state) => state.activeBlockIndex);
+  const updateBlock = useStore((state) => state.updateBlock);
+  const executeRequest = useStore((state) => state.executeRequest);
+  const cancelRequest = useStore((state) => state.cancelRequest);
   
   const activeBlock = requestBlocks[activeBlockIndex];
-  const isLoading = activeBlock ? loading[activeBlock.id] : false;
+  const isLoading = useStore((state) => activeBlock ? state.executionLoading[activeBlock.id] : false);
 
   if (!activeBlock) return null;
 
@@ -26,64 +24,25 @@ export const MethodUrlBar: React.FC = () => {
     updateBlock(activeBlockIndex, { url: e.target.value });
   };
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!activeBlock || isLoading) return;
-    
-    setLoading(activeBlock.id, true);
-    try {
-      const headersMap: Record<string, string> = {};
-      activeBlock.headers.filter(h => h.enabled && h.key).forEach(h => {
-        headersMap[h.key] = h.value;
-      });
+    executeRequest(activeBlock.id);
+  };
 
-      // Map to core.Request structure
-      const req = {
-        id: activeBlock.id,
-        name: activeBlock.name,
-        method: activeBlock.method,
-        url: activeBlock.url,
-        headers: headersMap,
-        body: activeBlock.body.content,
-        pre_request_script: activeBlock.preRequestScript,
-        test_script: activeBlock.testScript
-      };
-
-      // Map to core.Environment structure
-      const env = {
-        name: activeEnv,
-        variables: environments[activeEnv] || {},
-        is_active: activeEnv !== 'No Environment'
-      };
-
-      const resp = await Execute(req as any, env as any);
-      
-      setResult(activeBlock.id, {
-        status: resp.status,
-        statusText: resp.status_text,
-        headers: resp.headers,
-        cookies: parseCookies(resp.headers),
-        body: resp.body,
-        timing: { 
-          total: resp.timing?.total || 0,
-          detailed: resp.timing?.detailed
-        }
-      });
-    } catch (err: any) {
-      console.error('Execution failed:', err);
-      // You might want to show a toast or error UI here
-    } finally {
-      setLoading(activeBlock.id, false);
+  const handleCancel = () => {
+    if (activeBlock && isLoading) {
+      cancelRequest(activeBlock.id);
     }
   };
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-slate-900/80 rounded-xl border border-slate-700/50 shadow-inner group">
+    <div className="flex items-center gap-2 p-2 bg-dark-900/80 rounded-2xl border border-dark-800 shadow-inner group">
       <div className="relative">
         <select
           value={activeBlock.method}
           onChange={handleMethodChange}
           disabled={isLoading}
-          className="appearance-none bg-slate-800 text-blue-400 font-bold px-4 py-2 pr-8 rounded-lg border border-slate-700/50 hover:bg-slate-700 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/30 text-sm disabled:opacity-50"
+          className="appearance-none bg-dark-800 text-brand-primary font-black px-5 py-2.5 pr-10 rounded-xl border border-dark-700/50 hover:bg-dark-700 hover:border-brand-primary/30 transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-primary/20 text-xs disabled:opacity-50 uppercase tracking-widest"
         >
           {METHODS.map((m) => (
             <option key={m} value={m}>{m}</option>
@@ -99,22 +58,34 @@ export const MethodUrlBar: React.FC = () => {
         value={activeBlock.url}
         onChange={handleUrlChange}
         disabled={isLoading}
-        placeholder="Enter request URL or paste text"
-        className="flex-1 bg-transparent text-slate-100 px-3 py-2 text-sm focus:outline-none placeholder:text-slate-600 font-medium disabled:opacity-50"
+        placeholder="Enter request URL..."
+        className="flex-1 bg-transparent text-slate-100 px-4 py-2.5 text-sm focus:outline-none placeholder:text-slate-600 font-bold disabled:opacity-50"
       />
       
-      <button 
-        onClick={handleSend}
-        disabled={isLoading}
-        className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-lg transition-all shadow-lg shadow-blue-900/20 active:scale-95 disabled:bg-slate-700 disabled:shadow-none disabled:cursor-not-allowed"
-      >
-        {isLoading ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : (
-          <Send size={14} />
+      <div className="flex gap-2">
+        {isLoading && (
+          <button 
+            onClick={handleCancel}
+            className="flex items-center justify-center w-10 h-10 bg-dark-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-500 rounded-xl transition-all border border-dark-700 hover:border-rose-500/30"
+            title="Cancel Request"
+          >
+            <XCircle size={18} />
+          </button>
         )}
-        {isLoading ? 'Sending...' : 'Send'}
-      </button>
+        
+        <button 
+          onClick={handleSend}
+          disabled={isLoading}
+          className="flex items-center gap-2 px-8 py-2.5 bg-brand-primary hover:bg-brand-400 text-dark-950 text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-brand-primary/20 active:scale-95 disabled:bg-dark-800 disabled:text-brand-primary/50 disabled:shadow-none disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Send size={16} />
+          )}
+          {isLoading ? 'Sending' : 'Send'}
+        </button>
+      </div>
     </div>
   );
 };

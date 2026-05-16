@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { Tab } from '../../state/workspaceStore';
+import { Tab } from '../../types';
 
 interface TabItemProps {
   tab: Tab;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cookie } from '../../../state/executionStore';
+import { Cookie } from '../../../types';
 import { Shield, ShieldOff, Lock, Globe } from 'lucide-react';
 
 interface CookieTableProps {

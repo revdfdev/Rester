@@ -1,6 +1,7 @@
 import React from 'react';
 import { Virtuoso } from 'react-virtuoso';
-import { useWorkspaceStore, Tab } from '../state/workspaceStore';
+import { useStore } from '../state/store';
+import { Tab } from '../types';
 
 interface RequestItemProps {
   tab: Tab;
@@ -21,9 +22,9 @@ const RequestItem = React.memo(({ tab, isActive, onClick }: RequestItemProps) =>
 });
 
 export const VirtualRequestList: React.FC = () => {
-  const tabs = useWorkspaceStore((state) => state.tabs);
-  const activeTabId = useWorkspaceStore((state) => state.activeTabId);
-  const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
+  const tabs = useStore((state) => state.tabs);
+  const activeTabId = useStore((state) => state.activeTabId);
+  const setActiveTab = useStore((state) => state.setActiveTab);
 
   return (
     <div style={{ height: '100%', width: '100%' }}>

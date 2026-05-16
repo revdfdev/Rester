@@ -15,7 +15,10 @@ var assets embed.FS
 
 func main() {
 	// 1. Initialize core services
-	container := bootstrap.NewContainer()
+	container, err := bootstrap.NewContainer("rester.db")
+	if err != nil {
+		panic(err)
+	}
 
 	// 2. Create bridge handlers
 	app := NewApp(container)
@@ -24,7 +27,7 @@ func main() {
 	importExportHandler := handlers.NewImportExportHandler(container)
 
 	// 3. Create application with options
-	err := wails.Run(&options.App{
+	err = wails.Run(&options.App{
 		Title:  "Rester",
 		Width:  1024,
 		Height: 768,

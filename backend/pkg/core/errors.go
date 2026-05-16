@@ -3,10 +3,10 @@ package core
 import "errors"
 
 var (
-	ErrRequestNotFound    = errors.New("request not found")
-	ErrCollectionNotFound = errors.New("collection not found")
-	ErrParserFailed       = errors.New("failed to parse .http file")
-	ErrExecutionFailed    = errors.New("http execution failed")
-	ErrInvalidMethod      = errors.New("invalid http method")
-	ErrCancelled          = errors.New("operation cancelled")
+	ErrNotFound       = errors.New("not found")
+	ErrInternal       = errors.New("internal server error")
+	ErrUnauthorized   = errors.New("unauthorized")
+	ErrInvalidRequest = errors.New("invalid request")
+	ErrCancelled      = errors.New("request cancelled")
+	ErrTimeout        = errors.New("request timed out")
 )
