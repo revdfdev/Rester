@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RequestBlock",
+  "type": "object",
+  "properties": {
+    "id": { "type": "string" },
+    "name": { "type": "string" },
+    "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+    "url": { "type": "string" },
+    "headers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "value": { "type": "string" },
+          "enabled": { "type": "boolean" }
+        },
+        "required": ["key", "value"]
+      }
+    },
+    "body": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["none", "raw", "json", "form-data", "x-www-form-urlencoded"] },
+        "content": { "type": "string" }
+      }
+    },
+    "preRequestScript": { "type": "string" },
+    "testScript": { "type": "string" }
+  },
+  "required": ["id", "method", "url"]
+}

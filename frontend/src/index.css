@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    @apply bg-dark-950 text-slate-200 antialiased overflow-hidden selection:bg-brand-primary/30 h-full w-full m-0 p-0;
+    text-align: left;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-700/50 rounded-full hover:bg-dark-600;
+}
+
+/* Resizable Panels Styling */
+.ResizeHandle {
+  @apply w-1 bg-dark-900 hover:bg-brand-primary/50 transition-colors cursor-col-resize relative;
+}
+
+.ResizeHandle::after {
+  content: '';
+  @apply absolute inset-y-0 -left-1 -right-1 cursor-col-resize;
+}
+
+.ResizeHandleHorizontal {
+  @apply h-1 bg-dark-900 hover:bg-brand-primary/50 transition-colors cursor-row-resize relative;
+}
+
+.ResizeHandleHorizontal::after {
+  content: '';
+  @apply absolute inset-x-0 -top-1 -bottom-1 cursor-row-resize;
+}
+
+/* Tab Active Indicator */
+.tab-active {
+  @apply relative text-brand-primary after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-brand-primary;
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

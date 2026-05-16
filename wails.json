@@ -6,6 +6,10 @@
   "frontend:build": "npm run build",
   "frontend:dev:watcher": "npm run dev",
   "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "./frontend/src",
+  "assetserver": {
+    "assets": "frontend/dist"
+  },
   "author": {
     "name": "rehan-m-meizo",
     "email": "214839400+rehan-m-meizo@users.noreply.github.com"

@@ -1,0 +1,10 @@
+GET https://httpbin.org/get?env={{env_name}}
+User-Agent: Rester-CLI
+
+{}
+
+<%
+client.test("Status is 200", () => {
+    client.assert(response.status === 200);
+});
+%>

@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"rester/backend/handlers"
+	"rester/backend/pkg/bootstrap"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -12,12 +14,18 @@ import (
 var assets embed.FS
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+	// 1. Initialize core services
+	container := bootstrap.NewContainer()
 
-	// Create application with options
+	// 2. Create bridge handlers
+	app := NewApp(container)
+	executionHandler := handlers.NewExecutionHandler(container)
+	workspaceHandler := handlers.NewWorkspaceHandler(container)
+	importExportHandler := handlers.NewImportExportHandler(container)
+
+	// 3. Create application with options
 	err := wails.Run(&options.App{
-		Title:  "rester",
+		Title:  "Rester",
 		Width:  1024,
 		Height: 768,
 		AssetServer: &assetserver.Options{
@@ -27,6 +35,9 @@ func main() {
 		OnStartup:        app.startup,
 		Bind: []interface{}{
 			app,
+			executionHandler,
+			workspaceHandler,
+			importExportHandler,
 		},
 	})
 
