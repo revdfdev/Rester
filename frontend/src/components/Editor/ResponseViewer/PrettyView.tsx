@@ -31,16 +31,19 @@ export const PrettyView: React.FC<PrettyViewProps> = ({ content, contentType }) 
 
     if (language === 'json') {
       setIsFormatting(true);
-      // In a real app, we'd use the Web Worker here
-      // For now, we do a try-catch on main thread but keep it responsive
-      try {
-        const parsed = JSON.parse(content);
-        setFormattedContent(JSON.stringify(parsed, null, 2));
-      } catch (e) {
-        setFormattedContent(content);
-      } finally {
-        setIsFormatting(false);
-      }
+      
+      const timer = setTimeout(() => {
+        try {
+          const parsed = JSON.parse(content);
+          setFormattedContent(JSON.stringify(parsed, null, 2));
+        } catch (e) {
+          setFormattedContent(content);
+        } finally {
+          setIsFormatting(false);
+        }
+      }, 50);
+      
+      return () => clearTimeout(timer);
     } else {
       setFormattedContent(content);
     }

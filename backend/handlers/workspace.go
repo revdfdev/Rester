@@ -94,3 +94,7 @@ func (h *WorkspaceHandler) RemoveRecentWorkspace(path string) error {
 	}
 	return nil
 }
+
+func (h *WorkspaceHandler) GetCurrentWorkspace() (string, error) {
+	return h.container.Workspace.GetCurrentPath(), nil
+}

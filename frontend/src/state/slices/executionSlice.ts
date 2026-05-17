@@ -72,10 +72,11 @@ export const createExecutionSlice: StateCreator<RootState, [], [], ExecutionSlic
     }
 
     const activeEnvNode = rootState.environments.find(e => e.id === rootState.activeEnvId) || null;
+    const timeoutMs = rootState.settings?.requestTimeout || 30000;
 
     // 3. Execute
     try {
-      const result = await executeRequest(block, activeEnvNode);
+      const result = await executeRequest(block, activeEnvNode, timeoutMs);
 
       // Check if cancelled while flying
       if (get().executionCancelled[blockId]) {

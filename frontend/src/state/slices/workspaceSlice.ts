@@ -1,7 +1,5 @@
 import { StateCreator } from 'zustand';
 import { Tab, EditorMode } from '../../types';
-import * as App from '../../wailsjs/go/main/App';
-import * as WorkspaceHandler from '../../wailsjs/go/handlers/WorkspaceHandler';
 import { parseHttpFile } from '../../utils/http-parser';
 import { RootState } from '../store';
 
@@ -34,11 +32,13 @@ export interface WorkspaceSlice {
   updateTabContent: (id: string, content: string) => void;
   saveTab: (id: string) => Promise<void>;
   openFile: (path: string, name: string) => Promise<void>;
-  createFile: (parentPath: string, name: string) => Promise<void>;
+  createFile: (parentPath: string, name: string, initialContent?: string) => Promise<void>;
   createFolder: (parentPath: string, name: string) => Promise<void>;
   deleteItem: (path: string) => Promise<void>;
   renameItem: (oldPath: string, newPath: string) => Promise<void>;
   refreshWorkspace: () => Promise<void>;
+  openWorkspace: () => Promise<void>;
+  showInFolder: (path: string) => Promise<void>;
   
   // Recent Workspace Actions
   loadRecentWorkspaces: () => Promise<void>;
@@ -61,6 +61,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
   persistWorkspaceState: async () => {
     const state = get();
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       await (WorkspaceHandler as any).SaveWorkspaceMetadata({
         openTabs: state.tabs,
         activeTabId: state.activeTabId,
@@ -73,6 +74,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
 
   loadMetadata: async () => {
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       const meta = await (WorkspaceHandler as any).GetWorkspaceMetadata();
       if (meta && meta.openTabs && meta.openTabs.length > 0) {
         const nextDocuments: Record<string, any> = {};
@@ -185,6 +187,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
       autosaveTimeouts[id] = setTimeout(async () => {
         delete autosaveTimeouts[id];
         try {
+          const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
           await WorkspaceHandler.SaveFile(tab.path, content);
           
           set((state: any) => {
@@ -212,28 +215,87 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
   },
 
   closeTab: (id) => {
-    set((state) => {
-      const newTabs = state.tabs.filter((t) => t.id !== id);
+    set((state: any) => {
+      const newTabs = state.tabs.filter((t: Tab) => t.id !== id);
       let newActiveTabId = state.activeTabId;
       if (state.activeTabId === id) {
         newActiveTabId = newTabs.length > 0 ? newTabs[newTabs.length - 1].id : null;
       }
-      return { tabs: newTabs, activeTabId: newActiveTabId };
+      
+      const newDocuments = { ...state.documents };
+      delete newDocuments[id];
+      
+      let nextShortcutState = {};
+      if (newActiveTabId) {
+        const docState = newDocuments[newActiveTabId];
+        if (docState) {
+          nextShortcutState = {
+            requestBlocks: docState.requestBlocks || [],
+            activeBlockIndex: docState.activeBlockIndex || 0,
+            activeDocument: (docState.requestBlocks && docState.requestBlocks[docState.activeBlockIndex]) || null,
+            editorMode: docState.editorMode || 'form'
+          };
+        }
+      } else {
+        nextShortcutState = {
+          requestBlocks: [],
+          activeBlockIndex: 0,
+          activeDocument: null
+        };
+      }
+
+      return { 
+        tabs: newTabs, 
+        activeTabId: newActiveTabId, 
+        documents: newDocuments,
+        ...nextShortcutState 
+      };
     });
     get().persistWorkspaceState();
   },
 
   closeAllTabs: () => {
-    set({ tabs: [], activeTabId: null });
+    set({ 
+      tabs: [], 
+      activeTabId: null, 
+      documents: {},
+      requestBlocks: [],
+      activeBlockIndex: 0,
+      activeDocument: null
+    });
     get().persistWorkspaceState();
   },
 
   closeOtherTabs: (id) => {
-    set((state) => {
-      const tab = state.tabs.find(t => t.id === id);
+    set((state: any) => {
+      const tab = state.tabs.find((t: Tab) => t.id === id);
+      const newDocuments: Record<string, any> = {};
+      if (tab && state.documents[id]) {
+        newDocuments[id] = state.documents[id];
+      }
+      
+      let nextShortcutState = {};
+      if (tab && state.documents[id]) {
+        const docState = state.documents[id];
+        nextShortcutState = {
+          requestBlocks: docState.requestBlocks || [],
+          activeBlockIndex: docState.activeBlockIndex || 0,
+          activeDocument: (docState.requestBlocks && docState.requestBlocks[docState.activeBlockIndex]) || null,
+          editorMode: docState.editorMode || 'form'
+        };
+      } else {
+        nextShortcutState = {
+          requestBlocks: [],
+          activeBlockIndex: 0,
+          activeDocument: null
+        };
+      }
+
       return {
         tabs: tab ? [tab] : [],
-        activeTabId: tab ? tab.id : null
+        activeTabId: tab ? tab.id : null,
+        documents: newDocuments,
+        ...nextShortcutState
       };
     });
     get().persistWorkspaceState();
@@ -323,43 +385,65 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     }
 
     try {
+      const App = await import('../../wailsjs/go/main/App');
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       let savePath = tab.path;
+      const isNewFile = !savePath;
       
-      if (!savePath) {
-        savePath = await (App as any).SaveFileDialog(tab.name + '.http');
+      if (isNewFile) {
+        const defaultName = tab.name.endsWith('.http') ? tab.name : tab.name + '.http';
+        savePath = await (App as any).SaveFileDialog(defaultName);
         if (!savePath) return;
-        
-        // Update tab in store with new path and ID (since ID = path for files)
-        set((state) => ({
-          tabs: state.tabs.map(t => t.id === id ? { ...t, id: savePath, path: savePath, name: savePath.split(/[\\/]/).pop() || t.name } : t),
-          activeTabId: state.activeTabId === id ? savePath : state.activeTabId
-        }));
+        if (!savePath.endsWith('.http')) {
+          savePath = savePath + '.http';
+        }
       }
 
       await WorkspaceHandler.SaveFile(savePath, contentToSave);
       
-      // Update initialSerialized content to clear dirty tracking
       set((state: any) => {
-        const pathKey = savePath || id;
-        const docState = state.documents[pathKey];
+        const nextDocuments = { ...state.documents };
+        const docState = nextDocuments[id];
+        
         if (docState) {
-          return {
-            documents: {
-              ...state.documents,
-              [pathKey]: {
-                ...docState,
-                initialSerialized: contentToSave
-              }
-            }
+          if (isNewFile && id !== savePath) {
+            delete nextDocuments[id];
+          }
+          nextDocuments[savePath] = {
+            ...docState,
+            initialSerialized: contentToSave
           };
         }
-        return {};
+        
+        const nextTabs = state.tabs.map((t: Tab) => 
+          t.id === id 
+            ? { ...t, id: savePath, path: savePath, name: savePath.split(/[\\/]/).pop() || t.name, isDirty: false } 
+            : t
+        );
+        
+        const nextActiveTabId = state.activeTabId === id ? savePath : state.activeTabId;
+        
+        // Also project shortcuts for ease of UI consumption
+        let nextShortcutState = {};
+        if (nextActiveTabId === savePath && nextDocuments[savePath]) {
+          const activeDocState = nextDocuments[savePath];
+          nextShortcutState = {
+            requestBlocks: activeDocState.requestBlocks || [],
+            activeBlockIndex: activeDocState.activeBlockIndex || 0,
+            activeDocument: (activeDocState.requestBlocks && activeDocState.requestBlocks[activeDocState.activeBlockIndex]) || null,
+            editorMode: activeDocState.editorMode || 'form'
+          };
+        }
+        
+        return {
+          tabs: nextTabs,
+          activeTabId: nextActiveTabId,
+          documents: nextDocuments,
+          ...nextShortcutState
+        };
       });
 
-      state.markTabDirty(savePath, false);
-      
-      // Refresh sidebar if it's a new file
-      if (!tab.path) {
+      if (isNewFile) {
         state.loadCollections();
       }
     } catch (e) {
@@ -378,6 +462,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     }
 
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       const content = await WorkspaceHandler.ReadFile(path);
       
       state.addTab({
@@ -393,11 +478,12 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     }
   },
 
-  createFile: async (parentPath, name) => {
+  createFile: async (parentPath, name, initialContent) => {
     const state = get() as any;
     const fullPath = `${parentPath}/${name}.http`.replace(/\/+/g, '/');
     try {
-      await WorkspaceHandler.SaveFile(fullPath, 'GET https://api.example.com\n');
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
+      await WorkspaceHandler.SaveFile(fullPath, initialContent || 'GET https://api.example.com\n');
       await state.loadCollections();
       await state.openFile(fullPath, `${name}.http`);
     } catch (e) {
@@ -409,6 +495,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     const state = get() as any;
     const fullPath = `${parentPath}/${name}`.replace(/\/+/g, '/');
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       await WorkspaceHandler.CreateFolder(fullPath);
       await state.loadCollections();
     } catch (e) {
@@ -419,6 +506,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
   deleteItem: async (path) => {
     const state = get() as any;
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       await WorkspaceHandler.Delete(path);
       // Close tabs related to this path
       state.tabs.forEach((t: Tab) => {
@@ -435,10 +523,25 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
   renameItem: async (oldPath, newPath) => {
     const state = get() as any;
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       await WorkspaceHandler.Rename(oldPath, newPath);
-      // Update tabs related to this path
-      set((state) => ({
-        tabs: state.tabs.map(t => {
+      
+      set((state: any) => {
+        const nextDocuments = { ...state.documents };
+        
+        // Rename matching documents keys
+        Object.keys(nextDocuments).forEach((key) => {
+          if (key === oldPath) {
+            nextDocuments[newPath] = nextDocuments[key];
+            delete nextDocuments[key];
+          } else if (key.startsWith(oldPath + '/')) {
+            const updatedPath = key.replace(oldPath, newPath);
+            nextDocuments[updatedPath] = nextDocuments[key];
+            delete nextDocuments[key];
+          }
+        });
+
+        const nextTabs = state.tabs.map((t: Tab) => {
           if (t.path === oldPath) {
             return { ...t, id: newPath, path: newPath, name: newPath.split('/').pop() || t.name };
           }
@@ -447,9 +550,31 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
             return { ...t, id: updatedPath, path: updatedPath };
           }
           return t;
-        }),
-        activeTabId: state.activeTabId === oldPath ? newPath : (state.activeTabId?.startsWith(oldPath + '/') ? state.activeTabId.replace(oldPath, newPath) : state.activeTabId)
-      }));
+        });
+
+        const nextActiveTabId = state.activeTabId === oldPath 
+          ? newPath 
+          : (state.activeTabId?.startsWith(oldPath + '/') ? state.activeTabId.replace(oldPath, newPath) : state.activeTabId);
+          
+        let nextShortcutState = {};
+        if (nextActiveTabId && nextDocuments[nextActiveTabId]) {
+          const docState = nextDocuments[nextActiveTabId];
+          nextShortcutState = {
+            requestBlocks: docState.requestBlocks || [],
+            activeBlockIndex: docState.activeBlockIndex || 0,
+            activeDocument: (docState.requestBlocks && docState.requestBlocks[docState.activeBlockIndex]) || null,
+            editorMode: docState.editorMode || 'form'
+          };
+        }
+
+        return {
+          tabs: nextTabs,
+          activeTabId: nextActiveTabId,
+          documents: nextDocuments,
+          ...nextShortcutState
+        };
+      });
+
       await state.loadCollections();
     } catch (e) {
       console.error("Failed to rename item", e);
@@ -467,8 +592,31 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
     }
   },
 
+  openWorkspace: async () => {
+    const state = get() as any;
+    try {
+      const App = await import('../../wailsjs/go/main/App');
+      const path = await (App as any).SelectDirectory();
+      if (path) {
+        await state.openWorkspaceDirect(path);
+      }
+    } catch (e) {
+      console.error("Failed to pick and open workspace", e);
+    }
+  },
+
+  showInFolder: async (path: string) => {
+    try {
+      const App = await import('../../wailsjs/go/main/App');
+      await (App as any).ShowInFolder(path);
+    } catch (e) {
+      console.error("Failed to show in folder", e);
+    }
+  },
+
   loadRecentWorkspaces: async () => {
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       const workspaces = await (WorkspaceHandler as any).GetRecentWorkspaces();
       if (workspaces) {
         set({ recentWorkspaces: workspaces });
@@ -480,6 +628,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
 
   removeRecentWorkspace: async (path) => {
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       await (WorkspaceHandler as any).RemoveRecentWorkspace(path);
       await get().loadRecentWorkspaces();
     } catch (e) {
@@ -490,6 +639,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
   openWorkspaceDirect: async (path) => {
     const state = get() as any;
     try {
+      const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
       await (WorkspaceHandler as any).OpenWorkspace(path);
       await state.refreshWorkspace();
       await state.loadRecentWorkspaces();
@@ -500,6 +650,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
 
   loadWindowState: async () => {
     try {
+      const App = await import('../../wailsjs/go/main/App');
       const state = await (App as any).GetWindowState();
       if (state && (window as any).runtime) {
         const { WindowSetSize, WindowMaximize } = (window as any).runtime;
@@ -516,6 +667,7 @@ export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlic
 
   saveWindowState: async (width, height, maximized) => {
     try {
+      const App = await import('../../wailsjs/go/main/App');
       await (App as any).SaveWindowState(width, height, maximized);
     } catch (e) {
       console.error("Failed to save window state", e);

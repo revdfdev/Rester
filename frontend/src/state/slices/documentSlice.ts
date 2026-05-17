@@ -40,6 +40,7 @@ export interface VisualDocumentState {
   setHeaders: (headers: RequestBlock['headers']) => void;
   setParams: (params: RequestBlock['params']) => void;
   setBody: (body: RequestBlock['body']) => void;
+  setFormBody: (formBody: RequestBlock['formBody']) => void;
   setAuth: (auth: any) => void;
   
   // Undo/Redo operations
@@ -47,6 +48,9 @@ export interface VisualDocumentState {
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
+  
+  // Append a request block
+  appendRequestBlock: (block: RequestBlock) => void;
 }
 
 export const createDocumentSlice: StateCreator<VisualDocumentState> = (set, get) => ({
@@ -345,6 +349,7 @@ export const createDocumentSlice: StateCreator<VisualDocumentState> = (set, get)
   setHeaders: (headers) => get().updateDocument({ headers }),
   setParams: (params) => get().updateDocument({ params }),
   setBody: (body) => get().updateDocument({ body }),
+  setFormBody: (formBody) => get().updateDocument({ formBody }),
   
   setAuth: (auth: { type: 'bearer' | 'basic' | 'none', token?: string, username?: string, password?: string }) => {
     const currentHeaders = [...(get().activeDocument?.headers || [])];
@@ -452,5 +457,47 @@ export const createDocumentSlice: StateCreator<VisualDocumentState> = (set, get)
     if (!tabId) return false;
     const docState = get().documents[tabId];
     return docState ? docState.redoStack.length > 0 : false;
-  }
+  },
+
+  appendRequestBlock: (block) => set((state) => {
+    const fullState = state as any;
+    const tabId = fullState.activeTabId;
+    if (!tabId) return state;
+
+    const docState = state.documents[tabId];
+    if (!docState) return state;
+
+    const updatedBlocks = [...docState.requestBlocks, block];
+    const prevBlocks = JSON.parse(JSON.stringify(docState.requestBlocks));
+
+    const updatedDocState: TabDocumentState = {
+      ...docState,
+      requestBlocks: updatedBlocks,
+      undoStack: [...docState.undoStack, prevBlocks].slice(-50),
+      redoStack: []
+    };
+
+    // Seamless background serialization
+    syncToDocument(updatedBlocks).then((serialized) => {
+      const isDirty = serialized !== docState.initialSerialized;
+      const storeState = useStore.getState();
+      storeState.updateTabContent(tabId, serialized);
+      storeState.markTabDirty(tabId, isDirty);
+    }).catch((e) => {
+      console.error('Failed background AST serialization:', e);
+      const serialized = serializeHttpFile(updatedBlocks);
+      const isDirty = serialized !== docState.initialSerialized;
+      const storeState = useStore.getState();
+      storeState.updateTabContent(tabId, serialized);
+      storeState.markTabDirty(tabId, isDirty);
+    });
+
+    return {
+      documents: {
+        ...state.documents,
+        [tabId]: updatedDocState
+      },
+      requestBlocks: updatedBlocks
+    };
+  })
 });

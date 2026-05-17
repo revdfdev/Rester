@@ -19,6 +19,7 @@ const ResponseViewerComponent: React.FC = () => {
   const executionResults = useStore((state) => state.executionResults);
   const executionLoading = useStore((state) => state.executionLoading);
   const executionErrors = useStore((state) => state.executionErrors);
+  const storeCancelRequest = useStore((state) => state.cancelRequest);
   
   const [activeMode, setActiveMode] = useState<ViewMode>('tree');
   const [copied, setCopied] = useState(false);
@@ -85,10 +86,7 @@ const ResponseViewerComponent: React.FC = () => {
             <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Awaiting Remote Response</span>
           </div>
           <button 
-            onClick={() => {
-              // @ts-ignore
-              window.go.main.App.CancelRequest(activeBlock.id);
-            }}
+            onClick={() => storeCancelRequest(activeBlock.id)}
             className="px-6 py-2 bg-dark-900 hover:bg-rose-950/30 text-rose-500 text-[10px] font-black uppercase tracking-widest rounded-xl border border-rose-500/20 transition-all duration-300"
           >
             Cancel Request

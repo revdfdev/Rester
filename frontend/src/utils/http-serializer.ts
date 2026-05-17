@@ -1,4 +1,26 @@
-import { RequestBlock } from '../types';
+import { RequestBlock, KeyValue } from '../types';
+
+export const serializeFormBody = (type: 'form-data' | 'x-www-form-urlencoded', formBody?: KeyValue[]): string => {
+  if (!formBody || formBody.length === 0) return '';
+  const enabled = formBody.filter(f => f.enabled && f.key);
+  if (enabled.length === 0) return '';
+
+  if (type === 'x-www-form-urlencoded') {
+    return enabled
+      .map(f => `${encodeURIComponent(f.key)}=${encodeURIComponent(f.value)}`)
+      .join('&');
+  }
+
+  // multipart/form-data
+  const boundary = '----ResterBoundary';
+  const parts = enabled.map(f => {
+    if (f.type === 'file') {
+      return `--${boundary}\r\nContent-Disposition: form-data; name="${f.key}"; filename="${f.value}"\r\nContent-Type: application/octet-stream\r\n\r\n< ${f.value}\r\n`;
+    }
+    return `--${boundary}\r\nContent-Disposition: form-data; name="${f.key}"\r\n\r\n${f.value}\r\n`;
+  });
+  return parts.join('') + `--${boundary}--\r\n`;
+};
 
 export const serializeHttpFile = (blocks: RequestBlock[]): string => {
   return blocks.map((block) => {
@@ -25,15 +47,29 @@ export const serializeHttpFile = (blocks: RequestBlock[]): string => {
     });
 
     // Body
-    if (block.body.type !== 'none' && block.body.content) {
-      output += '\n';
-      output += block.body.content;
-      output += '\n';
+    if (block.body.type !== 'none') {
+      let bodyContent = block.body.content;
+      if (
+        (block.body.type === 'form-data' || block.body.type === 'x-www-form-urlencoded') &&
+        block.formBody
+      ) {
+        bodyContent = serializeFormBody(block.body.type, block.formBody);
+      }
+      
+      if (bodyContent) {
+        output += '\n';
+        output += bodyContent;
+        output += '\n';
+      }
     }
 
     // Test script
     if (block.testScript) {
-      if (block.body.type === 'none' || !block.body.content) {
+      const hasBody = block.body.type !== 'none' && (
+        block.body.content || 
+        ((block.body.type === 'form-data' || block.body.type === 'x-www-form-urlencoded') && block.formBody && block.formBody.length > 0)
+      );
+      if (!hasBody) {
         output += '\n';
       }
       output += `<%\n${block.testScript}\n%>\n`;

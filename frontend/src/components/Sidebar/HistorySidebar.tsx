@@ -4,7 +4,6 @@ import { HistoryEntry } from '../../types';
 import { HistoryItem } from './HistoryItem';
 import { Search, Trash2, History as HistoryIcon } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
-import { clearPersistedHistory } from '../../utils/history-persistence';
 
 export const HistorySidebar: React.FC = () => {
   const history = useStore((state) => state.history);
@@ -12,6 +11,7 @@ export const HistorySidebar: React.FC = () => {
   const setSearchTerm = useStore((state) => state.setHistorySearchTerm);
   const requestBlocks = useStore((state) => state.requestBlocks);
   const setActiveBlockIndex = useStore((state) => state.setActiveBlockIndex);
+  const clearHistory = useStore((state) => state.clearHistory);
 
   const filteredHistory = useMemo(() => {
     if (!searchTerm) return history;
@@ -22,6 +22,8 @@ export const HistorySidebar: React.FC = () => {
       entry.request.name?.toLowerCase().includes(lowSearch)
     );
   }, [history, searchTerm]);
+
+  const appendRequestBlock = useStore((state) => state.appendRequestBlock);
 
   const handleSelect = (entry: HistoryEntry) => {
     const existingIndex = requestBlocks.findIndex(b => 
@@ -35,14 +37,14 @@ export const HistorySidebar: React.FC = () => {
         ...entry.request,
         id: Math.random().toString(36).substr(2, 9),
       };
-      useStore.getState().setBlocks([...requestBlocks, newBlock]);
+      appendRequestBlock(newBlock);
       setActiveBlockIndex(requestBlocks.length);
     }
   };
 
   const handleClear = async () => {
     if (window.confirm('Are you sure you want to clear your entire request history?')) {
-      await clearPersistedHistory();
+      await clearHistory();
     }
   };
 

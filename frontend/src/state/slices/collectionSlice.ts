@@ -66,16 +66,16 @@ export const createCollectionSlice: StateCreator<CollectionSlice> = (set, get) =
       
       // Map core.Collection to CollectionNode
       const mapCollection = (c: any): any => ({
-        id: c.Path,
-        name: c.Name,
-        type: c.Requests && c.Requests.length > 0 ? 'collection' : 'folder',
+        id: c.Path || c.path,
+        name: c.Name || c.name,
+        type: (c.Requests || c.requests) && (c.Requests || c.requests).length > 0 ? 'collection' : 'folder',
         children: [
-          ...(c.Folders || []).map(mapCollection),
-          ...(c.Requests || []).map((r: any) => ({
-            id: r.ID,
-            name: r.Name,
+          ...(c.Folders || c.folders || []).map(mapCollection),
+          ...(c.Requests || c.requests || []).map((r: any) => ({
+            id: r.ID || r.id,
+            name: r.Name || r.name,
             type: 'request',
-            method: r.Method || 'GET'
+            method: r.Method || r.method || 'GET'
           }))
         ]
       });
@@ -93,11 +93,11 @@ export const createCollectionSlice: StateCreator<CollectionSlice> = (set, get) =
       
       // Map core.Environment to EnvironmentNode
       const mappedEnvs: EnvironmentNode[] = (envs || []).map((e: any) => ({
-        id: e.Name,
-        name: e.Name,
+        id: e.name,
+        name: e.name,
         path: '', // Path is not strictly needed for UI if we use Name as ID
-        isActive: e.IsActive,
-        variables: e.Variables || {}
+        isActive: e.is_active || false,
+        variables: e.variables || {}
       }));
 
       set({ environments: mappedEnvs });

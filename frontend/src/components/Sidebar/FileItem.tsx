@@ -1,6 +1,5 @@
 import React, { useState, memo } from 'react';
 import { FileText, Trash2, Edit2, Copy, Play, FolderOpen } from 'lucide-react';
-import * as App from '../../wailsjs/go/main/App';
 import { CollectionNode } from '../../types';
 import { TreeItem } from './TreeItem';
 import { useStore } from '../../state/store';
@@ -23,6 +22,10 @@ const FileItemComponent: React.FC<FileItemProps> = ({ node, indent }) => {
   const activeId = useStore((state) => state.activeId);
   const setActiveId = useStore((state) => state.setActiveId);
   const openFile = useStore((state) => state.openFile);
+  const showInFolder = useStore((state) => state.showInFolder);
+  const renameItem = useStore((state) => state.renameItem);
+  const deleteItem = useStore((state) => state.deleteItem);
+  const createFile = useStore((state) => state.createFile);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   
   const isActive = activeId === node.id;
@@ -38,11 +41,61 @@ const FileItemComponent: React.FC<FileItemProps> = ({ node, indent }) => {
   };
 
   const menuItems: MenuItem[] = [
-    { label: 'Run Request', icon: <Play size={14} />, onClick: () => console.log('Run') },
-    { label: 'Open in Explorer', icon: <FolderOpen size={14} />, onClick: () => (App as any).ShowInFolder(node.id) },
-    { label: 'Rename', icon: <Edit2 size={14} />, onClick: () => console.log('Rename') },
-    { label: 'Duplicate', icon: <Copy size={14} />, onClick: () => console.log('Duplicate') },
-    { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => console.log('Delete'), variant: 'danger' },
+    { 
+      label: 'Run Request', 
+      icon: <Play size={14} />, 
+      onClick: async () => {
+        setActiveId(node.id);
+        await openFile(node.id, node.name);
+        const storeState = useStore.getState();
+        const doc = storeState.activeDocument;
+        if (doc) {
+          storeState.executeRequest(doc.id);
+        }
+      } 
+    },
+    { label: 'Open in Explorer', icon: <FolderOpen size={14} />, onClick: () => showInFolder(node.id) },
+    { 
+      label: 'Rename', 
+      icon: <Edit2 size={14} />, 
+      onClick: async () => {
+        const newName = window.prompt('Enter new filename:', node.name.replace(/\.http$/, ''));
+        if (newName && newName.trim() !== '') {
+          const finalName = newName.trim().endsWith('.http') ? newName.trim() : newName.trim() + '.http';
+          const parts = node.id.split('/');
+          parts[parts.length - 1] = finalName;
+          const newPath = parts.join('/');
+          await renameItem(node.id, newPath);
+        }
+      } 
+    },
+    { 
+      label: 'Duplicate', 
+      icon: <Copy size={14} />, 
+      onClick: async () => {
+        try {
+          const WorkspaceHandler = await import('../../wailsjs/go/handlers/WorkspaceHandler');
+          const content = await WorkspaceHandler.ReadFile(node.id);
+          const parts = node.id.split('/');
+          const parentPath = parts.slice(0, -1).join('/');
+          const oldName = parts[parts.length - 1].replace(/\.http$/, '');
+          const newName = `${oldName}_Copy`;
+          await createFile(parentPath, newName, content);
+        } catch (e) {
+          console.error("Failed to duplicate file", e);
+        }
+      } 
+    },
+    { 
+      label: 'Delete', 
+      icon: <Trash2 size={14} />, 
+      onClick: async () => {
+        if (window.confirm(`Are you sure you want to delete ${node.name}?`)) {
+          await deleteItem(node.id);
+        }
+      }, 
+      variant: 'danger' 
+    },
   ];
 
   return (

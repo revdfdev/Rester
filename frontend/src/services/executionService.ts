@@ -102,6 +102,20 @@ function mapToRequest(block: RequestBlock): CoreRequest {
       .filter(f => f.enabled && f.key)
       .map(f => `${encodeURIComponent(f.key)}=${encodeURIComponent(f.value)}`)
       .join('&');
+  } else if (block.body.type === 'form-data' && block.formBody) {
+    // Build multipart/form-data body with a unique boundary
+    const boundary = `----ResterBoundary${Date.now().toString(36)}`;
+    const parts = block.formBody
+      .filter(f => f.enabled && f.key)
+      .map(f => {
+        if (f.type === 'file') {
+          // File references use < syntax — Go executor would need to read them
+          return `--${boundary}\r\nContent-Disposition: form-data; name="${f.key}"; filename="${f.value}"\r\nContent-Type: application/octet-stream\r\n\r\n< ${f.value}\r\n`;
+        }
+        return `--${boundary}\r\nContent-Disposition: form-data; name="${f.key}"\r\n\r\n${f.value}\r\n`;
+      });
+    bodyContent = parts.join('') + `--${boundary}--\r\n`;
+    headers['Content-Type'] = `multipart/form-data; boundary=${boundary}`;
   } else if (block.body.type !== 'none') {
     bodyContent = block.body.content;
   }
@@ -174,13 +188,14 @@ export interface ExecutionError {
 export async function executeRequest(
   block: RequestBlock,
   env: EnvironmentNode | null,
+  timeoutMs: number = 30000,
 ): Promise<ExecutionResult> {
   const coreReq = mapToRequest(block);
   const coreEnv = mapToEnvironment(env);
 
   try {
     const opts = {
-      timeout_ms: 30000, // Default 30s
+      timeout_ms: timeoutMs,
       request_id: block.id,
     };
     const resp = await Execute(coreReq as any, coreEnv as any, opts as any) as unknown as CoreResponse;

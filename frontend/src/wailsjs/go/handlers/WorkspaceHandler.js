@@ -18,6 +18,10 @@ export function GetCollections() {
   return window['go']['handlers']['WorkspaceHandler']['GetCollections']();
 }
 
+export function GetCurrentWorkspace() {
+  return window['go']['handlers']['WorkspaceHandler']['GetCurrentWorkspace']();
+}
+
 export function GetEnvironments() {
   return window['go']['handlers']['WorkspaceHandler']['GetEnvironments']();
 }

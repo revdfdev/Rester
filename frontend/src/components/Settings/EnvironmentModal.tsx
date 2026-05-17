@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Globe, Plus, Trash2, Key, Check, AlertCircle, Database } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Globe, Plus, Trash2, Key, Check, AlertCircle, Database, Eye, EyeOff } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { useStore } from '../../state/store';
 import { EnvironmentNode } from '../../types';
@@ -18,13 +18,21 @@ export const EnvironmentModal: React.FC = () => {
   const [newVarKey, setNewVarKey] = useState('');
   const [newVarValue, setNewVarValue] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+
+  const isSensitive = (k: string) => {
+    const lower = k.toLowerCase();
+    return lower.includes('token') || lower.includes('secret') || lower.includes('password') || lower.includes('key') || lower.includes('auth') || lower.includes('jwt') || lower.includes('private') || lower.includes('api');
+  };
 
   const selectedEnv = environments.find(e => e.id === selectedEnvId) || environments[0] || null;
 
   // Auto select first environment if none selected
-  if (!selectedEnvId && environments.length > 0) {
-    setSelectedEnvId(environments[0].id);
-  }
+  useEffect(() => {
+    if (!selectedEnvId && environments.length > 0) {
+      setSelectedEnvId(environments[0].id);
+    }
+  }, [selectedEnvId, environments]);
 
   const handleCreateEnv = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,17 +188,34 @@ export const EnvironmentModal: React.FC = () => {
                       <div className="h-4 w-px bg-dark-800" />
 
                       {/* Value Input */}
-                      <input
-                        type="text"
-                        defaultValue={val}
-                        onBlur={(e) => {
-                          const newVal = e.target.value;
-                          if (newVal !== val) {
-                            updateEnvironmentVariable(selectedEnv.name, key, key, newVal);
-                          }
-                        }}
-                        className="flex-1 min-w-0 bg-transparent text-xs text-slate-400 border-none outline-none focus:ring-0 px-2 py-1 rounded"
-                      />
+                      <div className="flex-1 flex items-center relative">
+                        <input
+                          type={(isSensitive(key) && !visibleKeys.has(key)) ? "password" : "text"}
+                          defaultValue={val}
+                          onBlur={(e) => {
+                            const newVal = e.target.value;
+                            if (newVal !== val) {
+                              updateEnvironmentVariable(selectedEnv.name, key, key, newVal);
+                            }
+                          }}
+                          className="w-full bg-transparent text-xs text-slate-400 border-none outline-none focus:ring-0 px-2 py-1 pr-8 rounded"
+                        />
+                        {isSensitive(key) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = new Set(visibleKeys);
+                              if (next.has(key)) next.delete(key);
+                              else next.add(key);
+                              setVisibleKeys(next);
+                            }}
+                            className="absolute right-1 p-1 text-slate-500 hover:text-slate-350 transition-colors"
+                            title={visibleKeys.has(key) ? "Hide sensitive value" : "Show sensitive value"}
+                          >
+                            {visibleKeys.has(key) ? <EyeOff size={12} /> : <Eye size={12} />}
+                          </button>
+                        )}
+                      </div>
 
                       <button
                         onClick={() => deleteEnvironmentVariable(selectedEnv.name, key)}

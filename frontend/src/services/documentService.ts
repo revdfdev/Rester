@@ -2,7 +2,7 @@ import * as DocumentHandler from '../wailsjs/go/handlers/DocumentHandler';
 import { core } from '../wailsjs/go/models';
 import { RequestBlock, KeyValue } from '../types';
 import { parseHttpFile } from '../utils/http-parser';
-import { serializeHttpFile } from '../utils/http-serializer';
+import { serializeHttpFile, serializeFormBody } from '../utils/http-serializer';
 
 // Check if Wails runtime handlers are available
 const isWailsAvailable = typeof window !== 'undefined' && 
@@ -27,6 +27,18 @@ export const syncToDocument = async (blocks: RequestBlock[]): Promise<string> =>
           line: 0
         }));
 
+      // Determine correct body content
+      let bodyContent = '';
+      if (block.body?.type !== 'none') {
+        bodyContent = block.body?.content || '';
+        if (
+          (block.body?.type === 'form-data' || block.body?.type === 'x-www-form-urlencoded') &&
+          block.formBody
+        ) {
+          bodyContent = serializeFormBody(block.body.type, block.formBody);
+        }
+      }
+
       // Construct the RequestNode
       const reqNode = {
         id: block.id || `block-${index}`,
@@ -34,7 +46,7 @@ export const syncToDocument = async (blocks: RequestBlock[]): Promise<string> =>
         method: block.method || 'GET',
         url: block.url || '',
         headers: headers,
-        body: block.body?.type !== 'none' ? block.body?.content || '' : '',
+        body: bodyContent,
         pre_request_script: block.preRequestScript ? { content: block.preRequestScript, line_range: [0, 0] } : undefined,
         test_script: block.testScript ? { content: block.testScript, line_range: [0, 0] } : undefined,
         line_range: [0, 0]

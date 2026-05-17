@@ -32,6 +32,10 @@ export function SaveWorkspaceMetadata(arg1:core.WorkspaceMetadata):Promise<void>
 
 export function SelectDirectory():Promise<string>;
 
+export function SelectFile(arg1:string,arg2:string):Promise<string>;
+
+export function SelectSaveFile(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function ShowInFolder(arg1:string):Promise<void>;
 
 export function UpdateSettings(arg1:string):Promise<void>;

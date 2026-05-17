@@ -10,6 +10,8 @@ import { SettingsModal } from './components/Settings/SettingsModal';
 import { EnvironmentModal } from './components/Settings/EnvironmentModal';
 import { RecentWorkspacesModal } from './components/Settings/RecentWorkspacesModal';
 
+import { EventsOn } from './wailsjs/runtime/runtime';
+
 const App: React.FC = () => {
   // Unified store selectors
   const tabs = useStore((state) => state.tabs);
@@ -24,6 +26,9 @@ const App: React.FC = () => {
   const updateTabContent = useStore((state) => state.updateTabContent);
   const theme = useTheme();
   const activeDocument = useStore((state) => state.activeDocument);
+  const storeExecuteRequest = useStore((state) => state.executeRequest);
+  const storeCancelRequest = useStore((state) => state.cancelRequest);
+  const executionLoading = useStore((state) => state.executionLoading);
 
   // Self-heal/lazy-initialize active document state if activeTabId is set but activeDocument is missing
   React.useEffect(() => {
@@ -42,6 +47,11 @@ const App: React.FC = () => {
     loadRecentWorkspaces();
     loadWindowState();
 
+    // Watch for external workspace directory updates dynamically
+    const unsubscribeWatcher = EventsOn('workspace:changed', () => {
+      useStore.getState().loadCollections();
+    });
+
     let resizeTimeout: any;
     const handleResize = () => {
       clearTimeout(resizeTimeout);
@@ -58,6 +68,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('resize', handleResize);
       clearTimeout(resizeTimeout);
+      unsubscribeWatcher();
     };
   }, [loadRecentWorkspaces, loadWindowState, saveWindowState]);
 
@@ -76,6 +87,26 @@ const App: React.FC = () => {
   // Global Keyboard Shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl + Enter: Execute Active Request
+      if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        const doc = useStore.getState().activeDocument;
+        if (doc && !executionLoading[doc.id]) {
+          storeExecuteRequest(doc.id);
+        }
+        return;
+      }
+
+      // Escape: Cancel Active Request
+      if (e.key === 'Escape') {
+        const doc = useStore.getState().activeDocument;
+        if (doc && executionLoading[doc.id]) {
+          e.preventDefault();
+          storeCancelRequest(doc.id);
+        }
+        return;
+      }
+
       if (!e.ctrlKey) return;
 
       // Ctrl + W: Close Active Tab
@@ -113,7 +144,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [tabs, activeTabId, setActiveTab, closeTab]);
+  }, [tabs, activeTabId, setActiveTab, closeTab, storeExecuteRequest, storeCancelRequest, executionLoading]);
 
   return (
     <>

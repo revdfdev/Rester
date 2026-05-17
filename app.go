@@ -27,6 +27,11 @@ func NewApp(c *bootstrap.Container) *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	if wm, ok := a.container.Workspace.(*storage.WorkspaceManager); ok {
+		wm.SetOnChanged(func() {
+			runtime.EventsEmit(ctx, "workspace:changed")
+		})
+	}
 }
 
 // Execute performs an HTTP request
@@ -138,4 +143,31 @@ func (a *App) SaveWindowState(width int, height int, maximized bool) error {
 		})
 	}
 	return nil
+}
+
+// SelectFile opens a file picker dialog and returns the selected path
+func (a *App) SelectFile(title string, pattern string) (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: title,
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: title,
+				Pattern:     pattern,
+			},
+		},
+	})
+}
+
+// SelectSaveFile opens a save dialog for any custom extension
+func (a *App) SelectSaveFile(title string, defaultName string, pattern string) (string, error) {
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           title,
+		DefaultFilename: defaultName,
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: title,
+				Pattern:     pattern,
+			},
+		},
+	})
 }

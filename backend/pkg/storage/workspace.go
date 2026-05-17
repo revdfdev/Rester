@@ -7,20 +7,46 @@ import (
 	"os"
 	"path/filepath"
 	"rester/backend/pkg/core"
+	"rester/backend/pkg/parser"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 type WorkspaceManager struct {
 	currentPath string
 	session     core.Storage
+	watcher     *WorkspaceWatcher
+	onChanged   func()
 }
 
 func NewWorkspaceManager() *WorkspaceManager {
 	return &WorkspaceManager{}
 }
 
-func (m *WorkspaceManager) SetSessionStorage(s core.Storage) {
-	m.session = s
+func (m *WorkspaceManager) SetOnChanged(cb func()) {
+	m.onChanged = cb
+}
+
+func (m *WorkspaceManager) watchDirectoryRecursively(path string) {
+	if m.watcher == nil {
+		return
+	}
+	_ = m.watcher.Watch(path)
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			name := entry.Name()
+			if name == ".git" || name == "node_modules" || name == ".rester" || name == "dist" || name == "build" {
+				continue
+			}
+			m.watchDirectoryRecursively(filepath.Join(path, name))
+		}
+	}
 }
 
 func (m *WorkspaceManager) OpenWorkspace(ctx context.Context, path string) error {
@@ -32,6 +58,36 @@ func (m *WorkspaceManager) OpenWorkspace(ctx context.Context, path string) error
 		return fmt.Errorf("path is not a directory: %s", path)
 	}
 	m.currentPath = path
+
+	// Close old watcher if active
+	if m.watcher != nil {
+		_ = m.watcher.Close()
+		m.watcher = nil
+	}
+
+	// Setup fsnotify watcher recursively
+	w, err := NewWorkspaceWatcher(func(event fsnotify.Event) {
+		name := event.Name
+		if strings.Contains(name, ".rester") || strings.Contains(name, "node_modules") || strings.Contains(name, ".git") {
+			return
+		}
+
+		// Dynamically watch new folders created within the workspace
+		if event.Op&fsnotify.Create == fsnotify.Create {
+			if subInfo, subErr := os.Stat(name); subErr == nil && subInfo.IsDir() {
+				m.watchDirectoryRecursively(name)
+			}
+		}
+
+		if m.onChanged != nil {
+			m.onChanged()
+		}
+	})
+	if err == nil {
+		m.watcher = w
+		m.watchDirectoryRecursively(path)
+		w.Start()
+	}
 
 	// Setup sidecar session DB
 	metaDir := filepath.Join(path, ".rester")
@@ -153,10 +209,26 @@ func (m *WorkspaceManager) scanDirectory(path string) ([]core.Collection, error)
 				Folders: subCols,
 			})
 		} else if strings.HasSuffix(name, ".http") {
+			method := "GET"
+			reqName := strings.TrimSuffix(name, ".http")
+
+			// Try to shallow-parse the file to extract Method and custom Name
+			p := parser.NewParser()
+			if fileNode, err := p.ParseFile(context.Background(), fullPath); err == nil && len(fileNode.Requests) > 0 {
+				firstReq := fileNode.Requests[0]
+				if firstReq.Method != "" {
+					method = firstReq.Method
+				}
+				if firstReq.Name != "" {
+					reqName = firstReq.Name
+				}
+			}
+
 			requests = append(requests, core.Request{
-				ID:   fullPath,
-				Name: strings.TrimSuffix(name, ".http"),
-				URL:  fullPath,
+				ID:     fullPath,
+				Name:   reqName,
+				Method: method,
+				URL:    fullPath,
 			})
 		}
 	}

@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Settings, FolderPlus, History as HistoryIcon, Layers, RotateCw } from 'lucide-react';
-import * as App from '../../wailsjs/go/main/App';
-import * as WorkspaceHandler from '../../wailsjs/go/handlers/WorkspaceHandler';
 import { TreeExplorer } from './TreeExplorer';
 import { HistorySidebar } from './HistorySidebar';
 import { EnvironmentSection } from './EnvironmentSection';
@@ -24,6 +22,7 @@ export const Sidebar: React.FC = () => {
   const loadMetadata = useStore((state) => state.loadMetadata);
   const addTab = useStore((state) => state.addTab);
   const refreshWorkspace = useStore((state) => state.refreshWorkspace);
+  const openWorkspace = useStore((state) => state.openWorkspace);
   const environments = useStore((state) => state.environments);
 
   // Load collections on mount
@@ -34,15 +33,7 @@ export const Sidebar: React.FC = () => {
   }, [loadCollections, loadEnvironments, loadMetadata]);
 
   const handleOpenWorkspace = async () => {
-    try {
-      const path = await (App as any).SelectDirectory();
-      if (path) {
-        await WorkspaceHandler.OpenWorkspace(path);
-        await refreshWorkspace();
-      }
-    } catch (e) {
-      console.error("Failed to open workspace", e);
-    }
+    await openWorkspace();
   };
 
   const handleNewRequest = () => {

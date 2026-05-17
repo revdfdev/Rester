@@ -10,6 +10,8 @@ export function Delete(arg1:string):Promise<void>;
 
 export function GetCollections():Promise<Array<core.Collection>>;
 
+export function GetCurrentWorkspace():Promise<string>;
+
 export function GetEnvironments():Promise<Array<core.Environment>>;
 
 export function GetMetadata(arg1:string):Promise<string>;

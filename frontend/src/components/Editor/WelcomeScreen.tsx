@@ -1,26 +1,16 @@
 import React from 'react';
 import { Plus, FolderPlus, Zap, History, Book, GitPullRequest, Folder, Calendar, ArrowRight } from 'lucide-react';
 import { useStore } from '../../state/store';
-import * as App from '../../wailsjs/go/main/App';
-import * as WorkspaceHandler from '../../wailsjs/go/handlers/WorkspaceHandler';
 
 export const WelcomeScreen: React.FC = () => {
   const addTab = useStore((state) => state.addTab);
-  const refreshWorkspace = useStore((state) => state.refreshWorkspace);
   const recentWorkspaces = useStore((state) => state.recentWorkspaces);
   const openWorkspaceDirect = useStore((state) => state.openWorkspaceDirect);
+  const openWorkspace = useStore((state) => state.openWorkspace);
   const setRecentWorkspacesOpen = useStore((state) => state.setRecentWorkspacesOpen);
 
   const handleOpenWorkspace = async () => {
-    try {
-      const path = await (App as any).SelectDirectory();
-      if (path) {
-        await WorkspaceHandler.OpenWorkspace(path);
-        await refreshWorkspace();
-      }
-    } catch (e) {
-      console.error("Failed to open workspace", e);
-    }
+    await openWorkspace();
   };
 
   const handleNewRequest = () => {

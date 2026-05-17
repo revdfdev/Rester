@@ -13,6 +13,10 @@ interface FolderItemProps {
 const FolderItemComponent: React.FC<FolderItemProps> = ({ node, indent }) => {
   const isExpanded = useStore((state) => state.expandedIds.has(node.id));
   const toggleExpand = useStore((state) => state.toggleExpand);
+  const createFile = useStore((state) => state.createFile);
+  const createFolder = useStore((state) => state.createFolder);
+  const renameItem = useStore((state) => state.renameItem);
+  const deleteItem = useStore((state) => state.deleteItem);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -21,10 +25,49 @@ const FolderItemComponent: React.FC<FolderItemProps> = ({ node, indent }) => {
   };
 
   const menuItems: MenuItem[] = [
-    { label: 'New Request', icon: <Plus size={14} />, onClick: () => console.log('New Request') },
-    { label: 'New Folder', icon: <FolderPlus size={14} />, onClick: () => console.log('New Folder') },
-    { label: 'Rename', icon: <Edit2 size={14} />, onClick: () => console.log('Rename') },
-    { label: 'Delete', icon: <Trash2 size={14} />, onClick: () => console.log('Delete'), variant: 'danger' },
+    { 
+      label: 'New Request', 
+      icon: <Plus size={14} />, 
+      onClick: async () => {
+        const name = window.prompt('Enter request name:', 'Untitled Request');
+        if (name && name.trim() !== '') {
+          await createFile(node.id, name.trim());
+        }
+      } 
+    },
+    { 
+      label: 'New Folder', 
+      icon: <FolderPlus size={14} />, 
+      onClick: async () => {
+        const name = window.prompt('Enter folder name:', 'New Folder');
+        if (name && name.trim() !== '') {
+          await createFolder(node.id, name.trim());
+        }
+      } 
+    },
+    { 
+      label: 'Rename', 
+      icon: <Edit2 size={14} />, 
+      onClick: async () => {
+        const newName = window.prompt('Enter new folder name:', node.name);
+        if (newName && newName.trim() !== '' && newName.trim() !== node.name) {
+          const parts = node.id.split('/');
+          parts[parts.length - 1] = newName.trim();
+          const newPath = parts.join('/');
+          await renameItem(node.id, newPath);
+        }
+      } 
+    },
+    { 
+      label: 'Delete', 
+      icon: <Trash2 size={14} />, 
+      onClick: async () => {
+        if (window.confirm(`Are you sure you want to delete ${node.name} and all its contents?`)) {
+          await deleteItem(node.id);
+        }
+      }, 
+      variant: 'danger' 
+    },
   ];
 
   return (

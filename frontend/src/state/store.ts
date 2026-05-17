@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { devtools, persist, createJSONStorage, StateStorage } from 'zustand/middleware';
-import * as WorkspaceHandler from '../wailsjs/go/handlers/WorkspaceHandler';
 import { createWorkspaceSlice, WorkspaceSlice } from './slices/workspaceSlice';
 import { createCollectionSlice, CollectionSlice } from './slices/collectionSlice';
 import { createHistorySlice, HistorySlice } from './slices/historySlice';
@@ -21,7 +20,8 @@ let pendingSaves: { [name: string]: string } = {};
 const wailsStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
-      const data = await WorkspaceHandler.GetMetadata(name);
+      const { GetMetadata } = await import('../wailsjs/go/handlers/WorkspaceHandler');
+      const data = await GetMetadata(name);
       return data || null;
     } catch {
       return null;
@@ -41,8 +41,9 @@ const wailsStorage: StateStorage = {
         pendingSaves = {};
 
         try {
+          const { SaveMetadata } = await import('../wailsjs/go/handlers/WorkspaceHandler');
           const promises = Object.entries(currentPending).map(([key, val]) => 
-            WorkspaceHandler.SaveMetadata(key, val)
+            SaveMetadata(key, val)
           );
           await Promise.all(promises);
         } catch (e) {
@@ -54,7 +55,8 @@ const wailsStorage: StateStorage = {
   },
   removeItem: async (name: string): Promise<void> => {
     try {
-      await WorkspaceHandler.SaveMetadata(name, "");
+      const { SaveMetadata } = await import('../wailsjs/go/handlers/WorkspaceHandler');
+      await SaveMetadata(name, "");
     } catch (e) {
       console.error("Failed to remove state from Wails", e);
     }

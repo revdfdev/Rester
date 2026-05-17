@@ -6,7 +6,6 @@ import { SourceView } from './SourceView';
 import { EnvironmentSelector } from '../Header/EnvironmentSelector';
 import { useStore, useEditorSettings } from '../../state/store';
 import { IconButton } from '../common/IconButton';
-import { SaveRequestModal } from './SaveRequestModal';
 
 interface RequestEditorProps {
   content: string;
@@ -16,9 +15,7 @@ interface RequestEditorProps {
 const RequestEditorComponent: React.FC<RequestEditorProps> = ({ content, onChange }) => {
   const mode = useStore((state) => state.editorMode);
   const activeTabId = useStore((state) => state.activeTabId);
-  const activeTab = useStore((state) => state.tabs.find(t => t.id === activeTabId));
   const saveTab = useStore((state) => state.saveTab);
-  const [isSaveModalOpen, setIsSaveModalOpen] = React.useState(false);
   const editorSettings = useEditorSettings();
 
   return (
@@ -46,21 +43,13 @@ const RequestEditorComponent: React.FC<RequestEditorProps> = ({ content, onChang
             className="rounded-xl px-4 hover:text-brand-primary group transition-all"
             title="Save (Ctrl+S)"
             onClick={() => {
-              if (activeTab && !activeTab.path) {
-                setIsSaveModalOpen(true);
-              } else if (activeTabId) {
+              if (activeTabId) {
                 saveTab(activeTabId);
               }
             }}
           />
         </div>
       </div>
-
-      <SaveRequestModal 
-        isOpen={isSaveModalOpen} 
-        onClose={() => setIsSaveModalOpen(false)} 
-        initialName={activeTab?.name === 'New Request' ? '' : activeTab?.name}
-      />
 
       {/* Editor Content */}
       <div className="flex-1 overflow-hidden relative">

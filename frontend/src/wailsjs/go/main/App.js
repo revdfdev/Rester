@@ -62,6 +62,14 @@ export function SelectDirectory() {
   return window['go']['main']['App']['SelectDirectory']();
 }
 
+export function SelectFile(arg1, arg2) {
+  return window['go']['main']['App']['SelectFile'](arg1, arg2);
+}
+
+export function SelectSaveFile(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SelectSaveFile'](arg1, arg2, arg3);
+}
+
 export function ShowInFolder(arg1) {
   return window['go']['main']['App']['ShowInFolder'](arg1);
 }
