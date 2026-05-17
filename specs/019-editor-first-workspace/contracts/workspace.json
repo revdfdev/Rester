@@ -1,0 +1,37 @@
+{
+  "service": "WorkspaceService",
+  "version": "2.0.0",
+  "description": "Bridge methods for filesystem-native workspace management",
+  "methods": [
+    {
+      "name": "OpenWorkspace",
+      "args": ["path: string"],
+      "returns": "error",
+      "description": "Initializes the workspace and starts the FS watcher."
+    },
+    {
+      "name": "GetCollections",
+      "args": [],
+      "returns": "[]CollectionNode",
+      "description": "Scans the workspace and returns the folder/file tree."
+    },
+    {
+      "name": "ReadFile",
+      "args": ["path: string"],
+      "returns": "string, error",
+      "description": "Reads the raw content of an .http file."
+    },
+    {
+      "name": "SaveFile",
+      "args": ["path: string", "content: string"],
+      "returns": "error",
+      "description": "Writes raw content to an .http file."
+    },
+    {
+      "name": "ParseContent",
+      "args": ["content: string"],
+      "returns": "FileNode, error",
+      "description": "Parses raw .http content and returns the AST (FileNode)."
+    }
+  ]
+}

@@ -38,7 +38,7 @@ export const parseHttpFile = (content: string): RequestBlock[] => {
         if (line.includes('%>')) {
           scriptBuffer = scriptBuffer.substring(0, scriptBuffer.indexOf('%>'));
           inScript = false;
-          if (section === 'start' || section === 'headers') preRequestScript = scriptBuffer.trim();
+          if (section === 'start' || section === 'headers' || bodyContent === '') preRequestScript = scriptBuffer.trim();
           else testScript = scriptBuffer.trim();
         }
         continue;
@@ -48,12 +48,12 @@ export const parseHttpFile = (content: string): RequestBlock[] => {
         if (line.includes('%>')) {
           scriptBuffer += '\n' + line.substring(0, line.indexOf('%>'));
           inScript = false;
-          if (section === 'start' || section === 'headers') preRequestScript = scriptBuffer.trim();
+          if (section === 'start' || section === 'headers' || bodyContent === '') preRequestScript = scriptBuffer.trim();
           else testScript = scriptBuffer.trim();
         } else {
           scriptBuffer += '\n' + line;
         }
-        continue;Section
+        continue;
       }
 
       // Skip comments
@@ -147,6 +147,21 @@ export const parseHttpFile = (content: string): RequestBlock[] => {
       rawContent: raw
     });
   });
+
+  if (blocks.length === 0) {
+    blocks.push({
+      id: 'block-0',
+      name: 'GET https://api.example.com',
+      method: 'GET',
+      url: 'https://api.example.com',
+      headers: [],
+      params: [],
+      body: { type: 'none', content: '' },
+      preRequestScript: '',
+      testScript: '',
+      rawContent: 'GET https://api.example.com\n'
+    });
+  }
 
   return blocks;
 };

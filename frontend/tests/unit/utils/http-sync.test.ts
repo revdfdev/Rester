@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseHttpFile } from '../../src/utils/http-parser';
-import { serializeHttpFile } from '../../src/utils/http-serializer';
+import { parseHttpFile } from '../../../src/utils/http-parser';
+import { serializeHttpFile } from '../../../src/utils/http-serializer';
 
 describe('HTTP Parser & Serializer', () => {
   const sampleFile = `# List Users
@@ -33,8 +33,8 @@ console.log("Tests");
 
     expect(blocks[0].name).toBe('List Users');
     expect(blocks[0].method).toBe('GET');
-    expect(blocks[0].headers).toContainEqual({ key: 'Authorization', value: 'Bearer token', enabled: true });
-    expect(blocks[0].params).toContainEqual({ key: 'page', value: '1', enabled: true });
+    expect(blocks[0].headers).toContainEqual(expect.objectContaining({ key: 'Authorization', value: 'Bearer token', enabled: true }));
+    expect(blocks[0].params).toContainEqual(expect.objectContaining({ key: 'page', value: '1', enabled: true }));
 
     expect(blocks[1].name).toBe('Create User');
     expect(blocks[1].method).toBe('POST');

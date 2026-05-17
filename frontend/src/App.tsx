@@ -7,6 +7,8 @@ import { WelcomeScreen } from './components/Editor/WelcomeScreen';
 import { initSettingsPersistence } from './utils/config-bridge';
 import { initHistoryPersistence } from './utils/history-persistence';
 import { SettingsModal } from './components/Settings/SettingsModal';
+import { EnvironmentModal } from './components/Settings/EnvironmentModal';
+import { RecentWorkspacesModal } from './components/Settings/RecentWorkspacesModal';
 
 const App: React.FC = () => {
   // Unified store selectors
@@ -16,14 +18,48 @@ const App: React.FC = () => {
   const closeTab = useStore((state) => state.closeTab);
   const saveTab = useStore((state) => state.saveTab);
   const isSettingsOpen = useStore((state) => state.isSettingsOpen);
+  const isRecentWorkspacesOpen = useStore((state) => state.isRecentWorkspacesOpen);
+  const setRecentWorkspacesOpen = useStore((state) => state.setRecentWorkspacesOpen);
   const activeTab = useActiveTab();
   const updateTabContent = useStore((state) => state.updateTabContent);
   const theme = useTheme();
+  const activeDocument = useStore((state) => state.activeDocument);
+
+  // Self-heal/lazy-initialize active document state if activeTabId is set but activeDocument is missing
+  React.useEffect(() => {
+    if (activeTabId && !activeDocument) {
+      setActiveTab(activeTabId);
+    }
+  }, [activeTabId, activeDocument, setActiveTab]);
+
+  const loadRecentWorkspaces = useStore((state) => state.loadRecentWorkspaces);
+  const loadWindowState = useStore((state) => state.loadWindowState);
+  const saveWindowState = useStore((state) => state.saveWindowState);
 
   React.useEffect(() => {
     initSettingsPersistence();
     initHistoryPersistence();
-  }, []);
+    loadRecentWorkspaces();
+    loadWindowState();
+
+    let resizeTimeout: any;
+    const handleResize = () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        // Wails window size state:
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const isMaximized = window.outerWidth === window.screen.availWidth && window.outerHeight === window.screen.availHeight;
+        saveWindowState(width, height, isMaximized);
+      }, 500);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(resizeTimeout);
+    };
+  }, [loadRecentWorkspaces, loadWindowState, saveWindowState]);
 
   // Theme synchronization
   React.useEffect(() => {
@@ -92,6 +128,11 @@ const App: React.FC = () => {
       )}
       </Layout>
       <SettingsModal />
+      <EnvironmentModal />
+      <RecentWorkspacesModal 
+        isOpen={isRecentWorkspacesOpen} 
+        onClose={() => setRecentWorkspacesOpen(false)} 
+      />
     </>
   );
 };

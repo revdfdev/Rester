@@ -25,6 +25,7 @@ func main() {
 	executionHandler := handlers.NewExecutionHandler(container)
 	workspaceHandler := handlers.NewWorkspaceHandler(container)
 	importExportHandler := handlers.NewImportExportHandler(container)
+	documentHandler := handlers.NewDocumentHandler()
 
 	// 3. Create application with options
 	err = wails.Run(&options.App{
@@ -41,6 +42,7 @@ func main() {
 			executionHandler,
 			workspaceHandler,
 			importExportHandler,
+			documentHandler,
 		},
 	})
 

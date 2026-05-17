@@ -5,6 +5,7 @@ import (
 
 	"rester/backend/pkg/bootstrap"
 	"rester/backend/pkg/core"
+	"rester/backend/pkg/storage"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -117,4 +118,24 @@ func (a *App) SaveWorkspaceMetadata(meta core.WorkspaceMetadata) error {
 // ShowInFolder opens the system file explorer and selects the given path
 func (a *App) ShowInFolder(path string) {
 	runtime.BrowserOpenURL(a.ctx, path)
+}
+
+// GetWindowState loads the main window size and layout state from SQLite
+func (a *App) GetWindowState() (*core.WindowState, error) {
+	if dbStore, ok := a.container.Storage.(*storage.SQLiteStorage); ok {
+		return dbStore.GetWindowState(a.ctx)
+	}
+	return nil, nil
+}
+
+// SaveWindowState persists the main window size and layout state to SQLite
+func (a *App) SaveWindowState(width int, height int, maximized bool) error {
+	if dbStore, ok := a.container.Storage.(*storage.SQLiteStorage); ok {
+		return dbStore.SaveWindowState(a.ctx, core.WindowState{
+			Width:     width,
+			Height:    height,
+			Maximized: maximized,
+		})
+	}
+	return nil
 }

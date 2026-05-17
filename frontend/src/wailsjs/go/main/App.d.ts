@@ -14,6 +14,8 @@ export function GetHistory(arg1:number):Promise<Array<core.HistoryEntry>>;
 
 export function GetSettings():Promise<string>;
 
+export function GetWindowState():Promise<core.WindowState>;
+
 export function GetWorkspaceMetadata():Promise<core.WorkspaceMetadata>;
 
 export function OpenWorkspace(arg1:string):Promise<void>;
@@ -23,6 +25,8 @@ export function ReadFile(arg1:string):Promise<string>;
 export function SaveFile(arg1:string,arg2:string):Promise<void>;
 
 export function SaveFileDialog(arg1:string):Promise<string>;
+
+export function SaveWindowState(arg1:number,arg2:number,arg3:boolean):Promise<void>;
 
 export function SaveWorkspaceMetadata(arg1:core.WorkspaceMetadata):Promise<void>;
 

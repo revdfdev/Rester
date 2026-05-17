@@ -22,9 +22,9 @@ export const SaveRequestModal: React.FC<SaveRequestModalProps> = ({ isOpen, onCl
   // Recursively find folders
   const getAllFolders = (nodes: CollectionNode[]): { id: string, name: string }[] => {
     let folders: { id: string, name: string }[] = [];
-    nodes.forEach(node => {
-      if (node.type === 'folder' || node.type === 'collection') {
-        folders.push({ id: node.id, name: node.name });
+    (nodes || []).forEach(node => {
+      if (node && (node.type === 'folder' || node.type === 'collection')) {
+        folders.push({ id: node.id, name: node.name || 'Unnamed Folder' });
         if (node.children) {
           folders = [...folders, ...getAllFolders(node.children)];
         }
@@ -33,7 +33,9 @@ export const SaveRequestModal: React.FC<SaveRequestModalProps> = ({ isOpen, onCl
     return folders;
   };
 
-  const folders = getAllFolders(collections).filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+  const folders = getAllFolders(collections).filter(f => 
+    f && f.name && f.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const handleSave = async () => {
     if (!selectedFolder || !name) return;

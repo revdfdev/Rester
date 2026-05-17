@@ -27,6 +27,9 @@ func (m *ConfigManager) Save(settings string) error {
 func (m *ConfigManager) Load() (string, error) {
 	data, err := os.ReadFile(m.path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return "{}", nil
+		}
 		return "", err
 	}
 	return string(data), nil

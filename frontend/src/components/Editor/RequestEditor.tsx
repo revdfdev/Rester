@@ -1,9 +1,8 @@
-import React, { useEffect, memo } from 'react';
+import React, { memo } from 'react';
 import { Save, Code } from 'lucide-react';
-import Editor from '@monaco-editor/react';
 import { ModeToggle } from './ModeToggle';
-import { FormEditor } from './FormEditor/FormEditor';
-import { registerHttpLanguage } from './http-lang';
+import { VisualBuilder } from '../VisualBuilder/VisualBuilder';
+import { SourceView } from './SourceView';
 import { EnvironmentSelector } from '../Header/EnvironmentSelector';
 import { useStore, useEditorSettings } from '../../state/store';
 import { IconButton } from '../common/IconButton';
@@ -16,29 +15,11 @@ interface RequestEditorProps {
 
 const RequestEditorComponent: React.FC<RequestEditorProps> = ({ content, onChange }) => {
   const mode = useStore((state) => state.editorMode);
-  const requestBlocks = useStore((state) => state.requestBlocks);
-  const syncFromText = useStore((state) => state.syncFromText);
-  const getSerializedContent = useStore((state) => state.getSerializedContent);
   const activeTabId = useStore((state) => state.activeTabId);
   const activeTab = useStore((state) => state.tabs.find(t => t.id === activeTabId));
   const saveTab = useStore((state) => state.saveTab);
   const [isSaveModalOpen, setIsSaveModalOpen] = React.useState(false);
   const editorSettings = useEditorSettings();
-
-  // Sync prop content to store on load/change
-  useEffect(() => {
-    syncFromText(content);
-  }, [content, syncFromText]);
-
-  // Debounced auto-save for Form mode
-  useEffect(() => {
-    if (mode === 'form' && requestBlocks.length > 0) {
-      const timer = setTimeout(() => {
-        onChange(getSerializedContent());
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [requestBlocks, mode, onChange, getSerializedContent]);
 
   return (
     <div className="h-full flex flex-col bg-dark-900 overflow-hidden">
@@ -85,41 +66,9 @@ const RequestEditorComponent: React.FC<RequestEditorProps> = ({ content, onChang
       <div className="flex-1 overflow-hidden relative">
         <div className={`h-full transition-all duration-500 ${mode === 'form' ? 'animate-in fade-in zoom-in-95' : 'animate-in fade-in slide-in-from-right-4'}`}>
           {mode === 'form' ? (
-            <FormEditor />
+            <VisualBuilder />
           ) : (
-            <Editor
-              height="100%"
-              defaultLanguage="http"
-              theme="rester-theme"
-              value={content}
-              onChange={(val) => onChange(val || '')}
-              options={{
-                minimap: { enabled: editorSettings.minimap },
-                fontSize: editorSettings.fontSize,
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                lineNumbers: editorSettings.lineNumbers,
-                wordWrap: editorSettings.wordWrap,
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                padding: { top: 24, bottom: 24 },
-                renderLineHighlight: 'all',
-                cursorSmoothCaretAnimation: 'on',
-                smoothScrolling: true,
-                roundedSelection: true,
-                cursorBlinking: 'smooth',
-                cursorStyle: 'line',
-                scrollbar: {
-                  vertical: 'visible',
-                  horizontal: 'visible',
-                  verticalScrollbarSize: 8,
-                  horizontalScrollbarSize: 8,
-                  useShadows: false,
-                },
-              }}
-              beforeMount={(monaco) => {
-                registerHttpLanguage(monaco);
-              }}
-            />
+            <SourceView content={content} onChange={onChange} />
           )}
         </div>
       </div>

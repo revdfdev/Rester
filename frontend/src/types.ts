@@ -40,6 +40,7 @@ export interface RequestBlock {
   preRequestScript?: string;
   testScript?: string;
   rawContent?: string;
+  lineRange?: [number, number];
 }
 
 export type EditorMode = 'form' | 'text';

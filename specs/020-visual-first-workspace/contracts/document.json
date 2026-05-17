@@ -1,0 +1,25 @@
+{
+  "service": "DocumentService",
+  "version": "1.0.0",
+  "description": "Handles synchronization between Visual UI state and .http documents",
+  "methods": [
+    {
+      "name": "SyncToDocument",
+      "args": ["state: VisualDocument"],
+      "returns": "string (raw content), error",
+      "description": "Converts visual state to serialized .http text."
+    },
+    {
+      "name": "SyncFromDocument",
+      "args": ["content: string"],
+      "returns": "VisualDocument, error",
+      "description": "Parses .http text into visual builder state."
+    },
+    {
+      "name": "WatchWorkspace",
+      "args": ["path: string"],
+      "returns": "void",
+      "description": "Starts monitoring for external changes."
+    }
+  ]
+}

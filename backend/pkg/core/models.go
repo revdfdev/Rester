@@ -137,3 +137,17 @@ type DetailedTiming struct {
 	TTFB     int64 `json:"ttfb"`
 	Download int64 `json:"download"`
 }
+
+// RecentWorkspace represents a previously opened workspace
+type RecentWorkspace struct {
+	Path       string `json:"path"`
+	Name       string `json:"name"`
+	LastOpened string `json:"last_opened"`
+}
+
+// WindowState represents the size and display mode of the app window
+type WindowState struct {
+	Width     int  `json:"width"`
+	Height    int  `json:"height"`
+	Maximized bool `json:"maximized"`
+}

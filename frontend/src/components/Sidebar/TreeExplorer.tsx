@@ -19,7 +19,7 @@ const TreeExplorerComponent: React.FC<TreeExplorerProps> = ({ nodes, indent = 0 
         const isExpanded = isFolder && expandedIds.has(node.id);
 
         return (
-          <React.Fragment key={node.id}>
+          <React.Fragment key={`${node.type}-${node.id}-${node.name}`}>
             {isFolder ? (
               <FolderItem node={node} indent={indent} />
             ) : (

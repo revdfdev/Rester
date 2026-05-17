@@ -70,7 +70,61 @@ func (m *EnvironmentManager) GetActiveEnvironment(ctx context.Context) (*core.En
 }
 
 func (m *EnvironmentManager) UpdateVariable(ctx context.Context, envName string, key string, value string) error {
-	return fmt.Errorf("writing to environment files not implemented yet")
+	envs, err := m.ListEnvironments(ctx)
+	if err != nil {
+		return err
+	}
+
+	found := false
+	for i, env := range envs {
+		if env.Name == envName {
+			if env.Variables == nil {
+				env.Variables = make(map[string]string)
+			}
+			if value == "" {
+				delete(env.Variables, key)
+			} else {
+				env.Variables[key] = value
+			}
+			envs[i] = env
+			found = true
+			break
+		}
+	}
+
+	if !found && value != "" {
+		envs = append(envs, core.Environment{
+			Name:      envName,
+			Variables: map[string]string{key: value},
+		})
+	}
+
+	return m.SaveEnvironments(ctx, envs)
+}
+
+func (m *EnvironmentManager) SaveEnvironments(ctx context.Context, envs []core.Environment) error {
+	if m.workspacePath == "" {
+		return fmt.Errorf("no workspace opened")
+	}
+
+	envData := make(map[string]map[string]string)
+	for _, env := range envs {
+		if env.Name == "" {
+			continue
+		}
+		if env.Variables == nil {
+			env.Variables = make(map[string]string)
+		}
+		envData[env.Name] = env.Variables
+	}
+
+	bytes, err := json.MarshalIndent(envData, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	envFile := filepath.Join(m.workspacePath, "http-client.env.json")
+	return os.WriteFile(envFile, bytes, 0644)
 }
 
 func (m *EnvironmentManager) SetWorkspace(path string) {

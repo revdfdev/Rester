@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"path/filepath"
 	"rester/backend/pkg/bootstrap"
 	"rester/backend/pkg/core"
+	"rester/backend/pkg/storage"
 )
 
 type WorkspaceHandler struct {
@@ -22,9 +24,18 @@ func (h *WorkspaceHandler) GetEnvironments() ([]core.Environment, error) {
 	return h.container.Environment.ListEnvironments(context.Background())
 }
 
+func (h *WorkspaceHandler) SaveEnvironments(envs []core.Environment) error {
+	return h.container.Environment.SaveEnvironments(context.Background(), envs)
+}
+
 func (h *WorkspaceHandler) OpenWorkspace(path string) error {
 	h.container.Environment.SetWorkspace(path)
-	return h.container.Workspace.OpenWorkspace(context.Background(), path)
+	err := h.container.Workspace.OpenWorkspace(context.Background(), path)
+	if err == nil {
+		name := filepath.Base(path)
+		_ = h.AddRecentWorkspace(path, name)
+	}
+	return err
 }
 
 func (h *WorkspaceHandler) GetWorkspaceMetadata() (*core.WorkspaceMetadata, error) {
@@ -61,4 +72,25 @@ func (h *WorkspaceHandler) GetMetadata(key string) (string, error) {
 
 func (h *WorkspaceHandler) SaveMetadata(key string, value string) error {
 	return h.container.Storage.SaveMetadata(context.Background(), key, value)
+}
+
+func (h *WorkspaceHandler) GetRecentWorkspaces() ([]core.RecentWorkspace, error) {
+	if dbStore, ok := h.container.Storage.(*storage.SQLiteStorage); ok {
+		return dbStore.GetRecentWorkspaces(context.Background())
+	}
+	return []core.RecentWorkspace{}, nil
+}
+
+func (h *WorkspaceHandler) AddRecentWorkspace(path string, name string) error {
+	if dbStore, ok := h.container.Storage.(*storage.SQLiteStorage); ok {
+		return dbStore.SaveRecentWorkspace(context.Background(), path, name)
+	}
+	return nil
+}
+
+func (h *WorkspaceHandler) RemoveRecentWorkspace(path string) error {
+	if dbStore, ok := h.container.Storage.(*storage.SQLiteStorage); ok {
+		return dbStore.RemoveRecentWorkspace(context.Background(), path)
+	}
+	return nil
 }

@@ -1,6 +1,9 @@
 package core
 
-import "context"
+import (
+	"context"
+	"net/http"
+)
 
 // WorkspaceService handles filesystem and collection management
 type WorkspaceService interface {
@@ -13,6 +16,8 @@ type WorkspaceService interface {
 	Rename(ctx context.Context, oldPath string, newPath string) error
 	GetWorkspaceMetadata(ctx context.Context) (*WorkspaceMetadata, error)
 	SaveWorkspaceMetadata(ctx context.Context, meta WorkspaceMetadata) error
+	GetCurrentPath() string
+	GetSessionStorage() Storage
 }
 
 // ParserService handles .http parsing
@@ -39,6 +44,7 @@ type EnvironmentService interface {
 	GetEnvironmentByName(ctx context.Context, name string) (*Environment, error)
 	GetActiveEnvironment(ctx context.Context) (*Environment, error)
 	UpdateVariable(ctx context.Context, envName string, key string, value string) error
+	SaveEnvironments(ctx context.Context, envs []Environment) error
 	SetWorkspace(path string)
 }
 
@@ -49,5 +55,8 @@ type Storage interface {
 	ClearHistory(ctx context.Context) error
 	SaveMetadata(ctx context.Context, key string, value string) error
 	GetMetadata(ctx context.Context, key string) (string, error)
+	SaveCookie(ctx context.Context, domain string, cookie *http.Cookie) error
+	GetCookiesForDomain(ctx context.Context, domain string) ([]*http.Cookie, error)
+	DeleteCookie(ctx context.Context, domain string, name string, path string) error
 	Close() error
 }

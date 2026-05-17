@@ -7,27 +7,27 @@ export const ModeToggle: React.FC = () => {
   const setMode = useStore((state) => state.setEditorMode);
 
   return (
-    <div className="flex items-center bg-slate-800/50 rounded-lg p-1 border border-slate-700/50">
+    <div className="flex items-center bg-dark-950/85 rounded-xl p-1 border border-dark-800 shadow-inner">
       <button
         onClick={() => setMode('form')}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${
           mode === 'form'
-            ? 'bg-blue-600 text-white shadow-lg'
-            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+            ? 'bg-brand-primary text-dark-950 shadow-lg shadow-brand-primary/10 active:scale-95'
+            : 'text-slate-500 hover:text-slate-300 hover:bg-dark-900/40 active:scale-95'
         }`}
       >
-        <Layout size={14} />
+        <Layout size={12} />
         Form
       </button>
       <button
         onClick={() => setMode('text')}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-200 ${
           mode === 'text'
-            ? 'bg-blue-600 text-white shadow-lg'
-            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'
+            ? 'bg-brand-primary text-dark-950 shadow-lg shadow-brand-primary/10 active:scale-95'
+            : 'text-slate-500 hover:text-slate-300 hover:bg-dark-900/40 active:scale-95'
         }`}
       >
-        <Code size={14} />
+        <Code size={12} />
         Text
       </button>
     </div>

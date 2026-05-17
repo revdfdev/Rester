@@ -60,6 +60,9 @@ test("Status is 200", () => {
 	if req1.URL != "{{base_url}}/users" {
 		t.Errorf("Req 1: Expected URL {{base_url}}/users, got %s", req1.URL)
 	}
+	if req1.Name != "GetUsers" {
+		t.Errorf("Req 1: Expected Name 'GetUsers', got '%s'", req1.Name)
+	}
 	if len(req1.Headers) != 2 {
 		t.Errorf("Req 1: Expected 2 headers, got %d", len(req1.Headers))
 	}
@@ -77,5 +80,34 @@ test("Status is 200", () => {
 	}
 	if req2.TestScript == nil {
 		t.Errorf("Req 2: Expected test script, got nil")
+	}
+}
+
+func TestParseCRLFContent(t *testing.T) {
+	content := "GET https://example.com\r\n" +
+		"Host: example.com\r\n" +
+		"Content-Type: text/plain\r\n" +
+		"\r\n" +
+		"Hello, CRLF Body!"
+
+	p := NewParser()
+	fileNode, err := p.ParseContent(context.Background(), content)
+	if err != nil {
+		t.Fatalf("ParseContent failed: %v", err)
+	}
+
+	if len(fileNode.Requests) != 1 {
+		t.Fatalf("Expected 1 request, got %d", len(fileNode.Requests))
+	}
+
+	req := fileNode.Requests[0]
+	if req.URL != "https://example.com" {
+		t.Errorf("Expected URL 'https://example.com', got '%s'", req.URL)
+	}
+	if len(req.Headers) != 2 {
+		t.Errorf("Expected 2 headers, got %d", len(req.Headers))
+	}
+	if req.Body != "Hello, CRLF Body!" {
+		t.Errorf("Expected body 'Hello, CRLF Body!', got '%s'", req.Body)
 	}
 }

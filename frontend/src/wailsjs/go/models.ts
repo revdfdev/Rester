@@ -114,6 +114,133 @@ export namespace core {
 	        this.request_id = source["request_id"];
 	    }
 	}
+	export class ScriptBlock {
+	    content: string;
+	    line_range: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ScriptBlock(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.content = source["content"];
+	        this.line_range = source["line_range"];
+	    }
+	}
+	export class HeaderNode {
+	    key: string;
+	    value: string;
+	    line: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HeaderNode(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.value = source["value"];
+	        this.line = source["line"];
+	    }
+	}
+	export class RequestNode {
+	    id: string;
+	    name?: string;
+	    method: string;
+	    url: string;
+	    headers: HeaderNode[];
+	    body?: string;
+	    pre_request_script?: ScriptBlock;
+	    test_script?: ScriptBlock;
+	    line_range: number[];
+	    metadata?: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new RequestNode(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.headers = this.convertValues(source["headers"], HeaderNode);
+	        this.body = source["body"];
+	        this.pre_request_script = this.convertValues(source["pre_request_script"], ScriptBlock);
+	        this.test_script = this.convertValues(source["test_script"], ScriptBlock);
+	        this.line_range = source["line_range"];
+	        this.metadata = source["metadata"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class VariableDef {
+	    name: string;
+	    value: string;
+	    line: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new VariableDef(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.value = source["value"];
+	        this.line = source["line"];
+	    }
+	}
+	export class FileNode {
+	    variables: VariableDef[];
+	    requests: RequestNode[];
+	
+	    static createFrom(source: any = {}) {
+	        return new FileNode(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.variables = this.convertValues(source["variables"], VariableDef);
+	        this.requests = this.convertValues(source["requests"], RequestNode);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class TestResult {
 	    name: string;
 	    passed: boolean;
@@ -249,6 +376,24 @@ export namespace core {
 		    return a;
 		}
 	}
+	export class RecentWorkspace {
+	    path: string;
+	    name: string;
+	    last_opened: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RecentWorkspace(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.last_opened = source["last_opened"];
+	    }
+	}
+	
+	
 	
 	
 	export class Tab {
@@ -279,6 +424,23 @@ export namespace core {
 	}
 	
 	
+	
+	export class WindowState {
+	    width: number;
+	    height: number;
+	    maximized: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new WindowState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.maximized = source["maximized"];
+	    }
+	}
 	export class WorkspaceMetadata {
 	    expandedFolders: string[];
 	    pinnedRequests: string[];

@@ -34,6 +34,8 @@ func (p *Parser) ParseContent(ctx context.Context, content string) (*core.FileNo
 		Requests:  []core.RequestNode{},
 	}
 
+	var pendingComments []string
+
 	for p.pos < len(p.tokens) {
 		token := p.peek()
 		switch token.Type {
@@ -41,11 +43,25 @@ func (p *Parser) ParseContent(ctx context.Context, content string) (*core.FileNo
 			fileNode.Variables = append(fileNode.Variables, p.parseVariableDef())
 		case TokenSeparator:
 			p.advance()
+			pendingComments = nil
 		case TokenMethod, TokenURL:
-			fileNode.Requests = append(fileNode.Requests, p.parseRequest())
+			req := p.parseRequest()
+			// Extract request name from pendingComments
+			for _, comment := range pendingComments {
+				trimmed := strings.TrimSpace(comment)
+				trimmed = strings.TrimPrefix(trimmed, "#")
+				trimmed = strings.TrimPrefix(trimmed, "//")
+				trimmed = strings.TrimSpace(trimmed)
+				if strings.HasPrefix(trimmed, "@name") {
+					namePart := strings.TrimPrefix(trimmed, "@name")
+					req.Name = strings.TrimSpace(namePart)
+				}
+			}
+			fileNode.Requests = append(fileNode.Requests, req)
+			pendingComments = nil
 		case TokenComment:
-			// For now, we skip comments unless they are part of a request
-			p.advance()
+			commentToken := p.advance()
+			pendingComments = append(pendingComments, commentToken.Value)
 		default:
 			p.advance()
 		}
@@ -64,6 +80,8 @@ func (p *Parser) ShallowParseContent(ctx context.Context, content string) (*core
 		Requests:  []core.RequestNode{},
 	}
 
+	var pendingComments []string
+
 	for p.pos < len(p.tokens) {
 		token := p.peek()
 		if token.Type == TokenMethod || token.Type == TokenURL {
@@ -77,12 +95,31 @@ func (p *Parser) ShallowParseContent(ctx context.Context, content string) (*core
 			if p.peek().Type == TokenURL {
 				req.URL = p.advance().Value
 			}
+			
+			// Extract request name from pendingComments
+			for _, comment := range pendingComments {
+				trimmed := strings.TrimSpace(comment)
+				trimmed = strings.TrimPrefix(trimmed, "#")
+				trimmed = strings.TrimPrefix(trimmed, "//")
+				trimmed = strings.TrimSpace(trimmed)
+				if strings.HasPrefix(trimmed, "@name") {
+					namePart := strings.TrimPrefix(trimmed, "@name")
+					req.Name = strings.TrimSpace(namePart)
+				}
+			}
 			fileNode.Requests = append(fileNode.Requests, req)
+			pendingComments = nil
 			
 			// Skip until next separator or request
 			for p.pos < len(p.tokens) && p.peek().Type != TokenSeparator && p.peek().Type != TokenMethod && p.peek().Type != TokenURL {
 				p.advance()
 			}
+		} else if token.Type == TokenComment {
+			commentToken := p.advance()
+			pendingComments = append(pendingComments, commentToken.Value)
+		} else if token.Type == TokenSeparator {
+			p.advance()
+			pendingComments = nil
 		} else {
 			p.advance()
 		}

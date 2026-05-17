@@ -166,9 +166,21 @@ func (l *Lexer) remaining() string {
 func (l *Lexer) skipWhitespace() {
 	for l.pos < len(l.input) && unicode.IsSpace(rune(l.peek())) {
 		// If we're in headers and see a double newline, transition to body
-		if l.state == stateHeaders && strings.HasPrefix(l.remaining(), "\n\n") {
-			l.advance()
-			l.advance()
+		remaining := l.remaining()
+		if l.state == stateHeaders && (strings.HasPrefix(remaining, "\n\n") || strings.HasPrefix(remaining, "\r\n\r\n") || strings.HasPrefix(remaining, "\n\r\n")) {
+			if strings.HasPrefix(remaining, "\r\n\r\n") {
+				l.advance() // \r
+				l.advance() // \n
+				l.advance() // \r
+				l.advance() // \n
+			} else if strings.HasPrefix(remaining, "\n\r\n") {
+				l.advance() // \n
+				l.advance() // \r
+				l.advance() // \n
+			} else {
+				l.advance() // \n
+				l.advance() // \n
+			}
 			l.state = stateBody
 			return
 		}
@@ -184,7 +196,8 @@ func (l *Lexer) lexComment() {
 	for l.pos < len(l.input) && l.peek() != '\n' {
 		l.advance()
 	}
-	l.tokens = append(l.tokens, Token{Type: TokenComment, Value: l.input[start:l.pos], Line: line, Column: col})
+	val := strings.TrimRight(l.input[start:l.pos], "\r")
+	l.tokens = append(l.tokens, Token{Type: TokenComment, Value: val, Line: line, Column: col})
 }
 
 func (l *Lexer) lexSeparator() {
@@ -207,7 +220,8 @@ func (l *Lexer) lexVariableDef() {
 	for l.pos < len(l.input) && l.peek() != '\n' {
 		l.advance()
 	}
-	l.tokens = append(l.tokens, Token{Type: TokenVariableDef, Value: l.input[start:l.pos], Line: line, Column: col})
+	val := strings.TrimRight(l.input[start:l.pos], "\r")
+	l.tokens = append(l.tokens, Token{Type: TokenVariableDef, Value: val, Line: line, Column: col})
 }
 
 func (l *Lexer) lexRequestLine() {
@@ -219,7 +233,7 @@ func (l *Lexer) lexRequestLine() {
 	for l.pos < len(l.input) && l.peek() != '\n' {
 		l.advance()
 	}
-	lineContent := l.input[start:l.pos]
+	lineContent := strings.TrimRight(l.input[start:l.pos], "\r")
 	parts := strings.SplitN(lineContent, " ", 2)
 	
 	if len(parts) == 2 {
@@ -251,7 +265,7 @@ func (l *Lexer) lexHeader() {
 		for l.pos < len(l.input) && l.peek() != '\n' {
 			l.advance()
 		}
-		val := l.input[valStart:l.pos]
+		val := strings.TrimRight(l.input[valStart:l.pos], "\r")
 		l.tokens = append(l.tokens, Token{Type: TokenHeaderValue, Value: strings.TrimSpace(val), Line: line, Column: valCol})
 	} else {
 		// Not a header, must be start of body or something else

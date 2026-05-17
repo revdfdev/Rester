@@ -14,6 +14,7 @@ type Container struct {
 	Executor    core.ExecutionService
 	Environment core.EnvironmentService
 	Storage     core.Storage
+	Session     core.Storage // [NEW] Workspace-specific session storage
 	Importer    *storage.PostmanImporter
 	Exporter    *storage.Exporter
 	Config      *storage.ConfigManager
@@ -26,11 +27,14 @@ func NewContainer(dbPath string) (*Container, error) {
 		return nil, err
 	}
 
+	workspaceManager := storage.NewWorkspaceManager()
+
 	return &Container{
-		Workspace: storage.NewWorkspaceManager(), // Root will be set later
+		Workspace:   workspaceManager,
 		Parser:      parser.NewParser(),
-		Executor:    executor.NewHttpExecutor(),
+		Executor:    executor.NewHttpExecutor(workspaceManager),
 		Storage:     sqliteStore,
+		Session:     sqliteStore, // Default session
 		Environment: storage.NewEnvironmentManager(),
 		Importer:    storage.NewPostmanImporter(),
 		Exporter:    storage.NewExporter(),

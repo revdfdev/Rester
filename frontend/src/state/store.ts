@@ -4,16 +4,19 @@ import * as WorkspaceHandler from '../wailsjs/go/handlers/WorkspaceHandler';
 import { createWorkspaceSlice, WorkspaceSlice } from './slices/workspaceSlice';
 import { createCollectionSlice, CollectionSlice } from './slices/collectionSlice';
 import { createHistorySlice, HistorySlice } from './slices/historySlice';
-import { createEditorSlice, EditorSlice } from './slices/editorSlice';
 import { createSettingsSlice, SettingsSlice } from './slices/settingsSlice';
 import { createExecutionSlice, ExecutionSlice } from './slices/executionSlice';
+import { createDocumentSlice, VisualDocumentState } from './slices/documentSlice';
 
 export type RootState = WorkspaceSlice & 
                        CollectionSlice & 
                        HistorySlice & 
-                       EditorSlice & 
                        SettingsSlice &
-                       ExecutionSlice;
+                       ExecutionSlice &
+                       VisualDocumentState;
+
+let saveTimeout: any = null;
+let pendingSaves: { [name: string]: string } = {};
 
 const wailsStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
@@ -25,11 +28,29 @@ const wailsStorage: StateStorage = {
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
-    try {
-      await WorkspaceHandler.SaveMetadata(name, value);
-    } catch (e) {
-      console.error("Failed to save state to Wails", e);
+    pendingSaves[name] = value;
+
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
     }
+
+    return new Promise<void>((resolve) => {
+      saveTimeout = setTimeout(async () => {
+        saveTimeout = null;
+        const currentPending = { ...pendingSaves };
+        pendingSaves = {};
+
+        try {
+          const promises = Object.entries(currentPending).map(([key, val]) => 
+            WorkspaceHandler.SaveMetadata(key, val)
+          );
+          await Promise.all(promises);
+        } catch (e) {
+          console.error("Failed to save state to Wails", e);
+        }
+        resolve();
+      }, 500);
+    });
   },
   removeItem: async (name: string): Promise<void> => {
     try {
@@ -47,9 +68,9 @@ export const useStore = create<RootState>()(
         ...createWorkspaceSlice(...a),
         ...createCollectionSlice(...a),
         ...createHistorySlice(...a),
-        ...createEditorSlice(...a),
         ...createSettingsSlice(...a),
         ...createExecutionSlice(...a),
+        ...createDocumentSlice(...a),
       }),
       {
         name: 'rester-app-storage',

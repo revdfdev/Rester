@@ -1,13 +1,26 @@
 import { StateCreator } from 'zustand';
-import { Tab } from '../../types';
+import { Tab, EditorMode } from '../../types';
 import * as App from '../../wailsjs/go/main/App';
 import * as WorkspaceHandler from '../../wailsjs/go/handlers/WorkspaceHandler';
+import { parseHttpFile } from '../../utils/http-parser';
+import { RootState } from '../store';
+
+const autosaveTimeouts: { [key: string]: any } = {};
+
+export interface RecentWorkspace {
+  path: string;
+  name: string;
+  last_opened: string;
+}
 
 export interface WorkspaceSlice {
   tabs: Tab[];
   activeTabId: string | null;
+  recentWorkspaces: RecentWorkspace[];
+  isRecentWorkspacesOpen: boolean;
   
   // Actions
+  setRecentWorkspacesOpen: (open: boolean) => void;
   persistWorkspaceState: () => Promise<void>;
   loadMetadata: () => Promise<void>;
   addTab: (tab: Omit<Tab, 'lastAccessed'>) => void;
@@ -26,16 +39,29 @@ export interface WorkspaceSlice {
   deleteItem: (path: string) => Promise<void>;
   renameItem: (oldPath: string, newPath: string) => Promise<void>;
   refreshWorkspace: () => Promise<void>;
+  
+  // Recent Workspace Actions
+  loadRecentWorkspaces: () => Promise<void>;
+  removeRecentWorkspace: (path: string) => Promise<void>;
+  openWorkspaceDirect: (path: string) => Promise<void>;
+  
+  // Window State Actions
+  loadWindowState: () => Promise<void>;
+  saveWindowState: (width: number, height: number, maximized: boolean) => Promise<void>;
 }
 
-export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set, get) => ({
+export const createWorkspaceSlice: StateCreator<RootState, [], [], WorkspaceSlice> = (set, get) => ({
   tabs: [],
   activeTabId: null,
+  recentWorkspaces: [],
+  isRecentWorkspacesOpen: false,
+
+  setRecentWorkspacesOpen: (open) => set({ isRecentWorkspacesOpen: open }),
 
   persistWorkspaceState: async () => {
     const state = get();
     try {
-      await (App as any).SaveWorkspaceMetadata({
+      await (WorkspaceHandler as any).SaveWorkspaceMetadata({
         openTabs: state.tabs,
         activeTabId: state.activeTabId,
         lastOpenedAt: new Date().toISOString()
@@ -47,12 +73,45 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set, get) => 
 
   loadMetadata: async () => {
     try {
-      const meta = await (App as any).GetWorkspaceMetadata();
+      const meta = await (WorkspaceHandler as any).GetWorkspaceMetadata();
       if (meta && meta.openTabs && meta.openTabs.length > 0) {
-        set({ 
-          tabs: meta.openTabs, 
-          activeTabId: meta.activeTabId 
+        const nextDocuments: Record<string, any> = {};
+        meta.openTabs.forEach((tab: Tab) => {
+          const content = tab.content || '';
+          const parsedBlocks = parseHttpFile(content);
+          nextDocuments[tab.id] = {
+            requestBlocks: parsedBlocks,
+            activeBlockIndex: 0,
+            undoStack: [],
+            redoStack: [],
+            editorMode: 'form' as EditorMode,
+            initialSerialized: content
+          };
         });
+
+        const activeTabId = meta.activeTabId;
+        const activeTab = meta.openTabs.find((t: Tab) => t.id === activeTabId);
+        
+        let nextShortcutState: any = {};
+        if (activeTabId && activeTab) {
+          const docState = nextDocuments[activeTabId];
+          nextShortcutState = {
+            requestBlocks: docState.requestBlocks,
+            activeBlockIndex: 0,
+            activeDocument: docState.requestBlocks[0] || null,
+            editorMode: (docState.editorMode || 'form') as EditorMode
+          };
+        }
+
+        set((state) => ({ 
+          tabs: meta.openTabs, 
+          activeTabId: meta.activeTabId,
+          documents: {
+            ...(state as any).documents,
+            ...nextDocuments
+          },
+          ...nextShortcutState
+        }));
       }
     } catch (e) {
       // It's fine if metadata doesn't exist yet
@@ -61,23 +120,50 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set, get) => 
 
   addTab: (tabData) => {
     set((state) => {
+      const fullState = state as any;
       const exists = state.tabs.find((t) => t.id === tabData.id);
       const now = Date.now();
       let nextState;
+      
+      const content = tabData.content || '';
+      const parsedBlocks = parseHttpFile(content);
+      const docState = {
+        requestBlocks: parsedBlocks,
+        activeBlockIndex: 0,
+        undoStack: [],
+        redoStack: [],
+        editorMode: 'form' as EditorMode,
+        initialSerialized: content
+      };
+      
+      const newDocuments = {
+        ...fullState.documents,
+        [tabData.id]: docState
+      };
+      
       if (exists) {
         nextState = { 
           activeTabId: tabData.id,
-          tabs: state.tabs.map(t => t.id === tabData.id ? { ...t, lastAccessed: now } : t)
+          tabs: state.tabs.map(t => t.id === tabData.id ? { ...t, lastAccessed: now } : t),
+          requestBlocks: fullState.documents[tabData.id]?.requestBlocks || parsedBlocks,
+          activeBlockIndex: fullState.documents[tabData.id]?.activeBlockIndex || 0,
+          activeDocument: fullState.documents[tabData.id]?.requestBlocks[fullState.documents[tabData.id]?.activeBlockIndex || 0] || parsedBlocks[0] || null,
+          editorMode: (fullState.documents[tabData.id]?.editorMode || 'form') as EditorMode
         };
       } else {
         const newTab: Tab = { 
           ...tabData, 
           lastAccessed: now,
-          content: tabData.content || ''
+          content: content
         };
         nextState = {
           tabs: [...state.tabs, newTab],
           activeTabId: tabData.id,
+          documents: newDocuments,
+          requestBlocks: parsedBlocks,
+          activeBlockIndex: 0,
+          activeDocument: parsedBlocks[0] || null,
+          editorMode: 'form' as EditorMode
         };
       }
       return nextState;
@@ -89,8 +175,40 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set, get) => 
     set((state) => ({
       tabs: state.tabs.map(t => t.id === id ? { ...t, content } : t)
     }));
-    // We don't necessarily want to persist on every keystroke, 
-    // maybe only on blur or periodic? For now, we'll skip persisting content-only changes.
+
+    const state = get();
+    const tab = state.tabs.find(t => t.id === id);
+    if (tab && tab.path) {
+      if (autosaveTimeouts[id]) {
+        clearTimeout(autosaveTimeouts[id]);
+      }
+      autosaveTimeouts[id] = setTimeout(async () => {
+        delete autosaveTimeouts[id];
+        try {
+          await WorkspaceHandler.SaveFile(tab.path, content);
+          
+          set((state: any) => {
+            const docState = state.documents[id];
+            if (docState) {
+              return {
+                documents: {
+                  ...state.documents,
+                  [id]: {
+                    ...docState,
+                    initialSerialized: content
+                  }
+                }
+              };
+            }
+            return {};
+          });
+          
+          state.markTabDirty(id, false);
+        } catch (e) {
+          console.error("Autosave failed for tab: " + id, e);
+        }
+      }, 1000);
+    }
   },
 
   closeTab: (id) => {
@@ -122,10 +240,50 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set, get) => 
   },
 
   setActiveTab: (id) => {
-    set((state) => ({
-      activeTabId: id,
-      tabs: state.tabs.map(t => t.id === id ? { ...t, lastAccessed: Date.now() } : t)
-    }));
+    set((state) => {
+      const fullState = state as any;
+      const nextTabs = state.tabs.map(t => t.id === id ? { ...t, lastAccessed: Date.now() } : t);
+      const activeTab = nextTabs.find(t => t.id === id);
+      
+      let nextShortcutState: any = {};
+      let nextDocuments = { ...fullState.documents };
+      
+      if (id && activeTab) {
+        let docState = nextDocuments[id];
+        if (!docState) {
+          const parsedBlocks = parseHttpFile(activeTab.content || '');
+          docState = {
+            requestBlocks: parsedBlocks,
+            activeBlockIndex: 0,
+            undoStack: [],
+            redoStack: [],
+            editorMode: 'form' as EditorMode,
+            initialSerialized: activeTab.content || ''
+          };
+          nextDocuments[id] = docState;
+        }
+        
+        nextShortcutState = {
+          requestBlocks: docState.requestBlocks,
+          activeBlockIndex: docState.activeBlockIndex,
+          activeDocument: docState.requestBlocks[docState.activeBlockIndex] || null,
+          editorMode: docState.editorMode as EditorMode,
+          documents: nextDocuments
+        };
+      } else {
+        nextShortcutState = {
+          activeDocument: null,
+          requestBlocks: [],
+          activeBlockIndex: 0
+        };
+      }
+      
+      return {
+        activeTabId: id,
+        tabs: nextTabs,
+        ...nextShortcutState
+      };
+    });
     get().persistWorkspaceState();
   },
 
@@ -179,6 +337,25 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set, get) => 
       }
 
       await WorkspaceHandler.SaveFile(savePath, contentToSave);
+      
+      // Update initialSerialized content to clear dirty tracking
+      set((state: any) => {
+        const pathKey = savePath || id;
+        const docState = state.documents[pathKey];
+        if (docState) {
+          return {
+            documents: {
+              ...state.documents,
+              [pathKey]: {
+                ...docState,
+                initialSerialized: contentToSave
+              }
+            }
+          };
+        }
+        return {};
+      });
+
       state.markTabDirty(savePath, false);
       
       // Refresh sidebar if it's a new file
@@ -287,6 +464,61 @@ export const createWorkspaceSlice: StateCreator<WorkspaceSlice> = (set, get) => 
       await state.loadMetadata();
     } catch (e) {
       console.error("Failed to refresh workspace", e);
+    }
+  },
+
+  loadRecentWorkspaces: async () => {
+    try {
+      const workspaces = await (WorkspaceHandler as any).GetRecentWorkspaces();
+      if (workspaces) {
+        set({ recentWorkspaces: workspaces });
+      }
+    } catch (e) {
+      console.error("Failed to load recent workspaces", e);
+    }
+  },
+
+  removeRecentWorkspace: async (path) => {
+    try {
+      await (WorkspaceHandler as any).RemoveRecentWorkspace(path);
+      await get().loadRecentWorkspaces();
+    } catch (e) {
+      console.error("Failed to remove recent workspace", e);
+    }
+  },
+
+  openWorkspaceDirect: async (path) => {
+    const state = get() as any;
+    try {
+      await (WorkspaceHandler as any).OpenWorkspace(path);
+      await state.refreshWorkspace();
+      await state.loadRecentWorkspaces();
+    } catch (e) {
+      console.error("Failed to open workspace direct", e);
+    }
+  },
+
+  loadWindowState: async () => {
+    try {
+      const state = await (App as any).GetWindowState();
+      if (state && (window as any).runtime) {
+        const { WindowSetSize, WindowMaximize } = (window as any).runtime;
+        if (state.maximized) {
+          WindowMaximize();
+        } else if (state.width > 0 && state.height > 0) {
+          WindowSetSize(state.width, state.height);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load window state", e);
+    }
+  },
+
+  saveWindowState: async (width, height, maximized) => {
+    try {
+      await (App as any).SaveWindowState(width, height, maximized);
+    } catch (e) {
+      console.error("Failed to save window state", e);
     }
   },
 });

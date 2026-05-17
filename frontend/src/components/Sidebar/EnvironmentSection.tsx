@@ -1,11 +1,12 @@
 import React from 'react';
-import { Database, ChevronDown, Globe } from 'lucide-react';
+import { Database, Settings, Globe } from 'lucide-react';
 import { useStore } from '../../state/store';
 
 export const EnvironmentSection: React.FC = () => {
   const environments = useStore((state) => state.environments);
   const activeEnvId = useStore((state) => state.activeEnvId);
   const setActiveEnvId = useStore((state) => state.setActiveEnvId);
+  const setEnvironmentModalOpen = useStore((state) => state.setEnvironmentModalOpen);
 
   return (
     <div className="border-t border-dark-900 bg-dark-950/20">
@@ -14,8 +15,12 @@ export const EnvironmentSection: React.FC = () => {
           <Globe size={12} className="text-slate-600" />
           <span>Environments</span>
         </div>
-        <button className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-dark-800 rounded transition-all text-slate-500">
-           <ChevronDown size={12} />
+        <button 
+          onClick={() => setEnvironmentModalOpen(true)}
+          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-dark-800 hover:text-brand-primary rounded transition-all text-slate-500"
+          title="Manage Environments"
+        >
+           <Settings size={12} />
         </button>
       </div>
 

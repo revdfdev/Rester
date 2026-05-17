@@ -26,6 +26,10 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function GetWindowState() {
+  return window['go']['main']['App']['GetWindowState']();
+}
+
 export function GetWorkspaceMetadata() {
   return window['go']['main']['App']['GetWorkspaceMetadata']();
 }
@@ -44,6 +48,10 @@ export function SaveFile(arg1, arg2) {
 
 export function SaveFileDialog(arg1) {
   return window['go']['main']['App']['SaveFileDialog'](arg1);
+}
+
+export function SaveWindowState(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SaveWindowState'](arg1, arg2, arg3);
 }
 
 export function SaveWorkspaceMetadata(arg1) {

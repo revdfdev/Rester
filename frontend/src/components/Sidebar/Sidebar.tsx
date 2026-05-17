@@ -18,6 +18,7 @@ export const Sidebar: React.FC = () => {
   const setCollections = useStore((state) => state.setCollections);
   const setEnvironments = useStore((state) => state.setEnvironments);
   const setSettingsOpen = useStore((state) => state.setSettingsOpen);
+  const setRecentWorkspacesOpen = useStore((state) => state.setRecentWorkspacesOpen);
   const loadCollections = useStore((state) => state.loadCollections);
   const loadEnvironments = useStore((state) => state.loadEnvironments);
   const loadMetadata = useStore((state) => state.loadMetadata);
@@ -96,6 +97,12 @@ export const Sidebar: React.FC = () => {
                   size="sm" 
                   title="Refresh" 
                   onClick={refreshWorkspace}
+                />
+                <IconButton 
+                  icon={<HistoryIcon size={14} />} 
+                  size="sm" 
+                  title="Recent Workspaces" 
+                  onClick={() => setRecentWorkspacesOpen(true)}
                 />
                 <IconButton 
                   icon={<FolderPlus size={14} />} 

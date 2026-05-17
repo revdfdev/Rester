@@ -12,10 +12,15 @@ import (
 
 type WorkspaceManager struct {
 	currentPath string
+	session     core.Storage
 }
 
 func NewWorkspaceManager() *WorkspaceManager {
 	return &WorkspaceManager{}
+}
+
+func (m *WorkspaceManager) SetSessionStorage(s core.Storage) {
+	m.session = s
 }
 
 func (m *WorkspaceManager) OpenWorkspace(ctx context.Context, path string) error {
@@ -27,6 +32,20 @@ func (m *WorkspaceManager) OpenWorkspace(ctx context.Context, path string) error
 		return fmt.Errorf("path is not a directory: %s", path)
 	}
 	m.currentPath = path
+
+	// Setup sidecar session DB
+	metaDir := filepath.Join(path, ".rester")
+	if err := os.MkdirAll(metaDir, 0755); err != nil {
+		return err
+	}
+
+	sessionPath := filepath.Join(metaDir, "session.db")
+	sessionStore, err := NewSQLiteStorage(sessionPath)
+	if err != nil {
+		return err
+	}
+	m.session = sessionStore
+
 	return nil
 }
 
@@ -150,4 +169,12 @@ func (m *WorkspaceManager) scanDirectory(path string) ([]core.Collection, error)
 			Folders:  collections,
 		},
 	}, nil
+}
+
+func (m *WorkspaceManager) GetCurrentPath() string {
+	return m.currentPath
+}
+
+func (m *WorkspaceManager) GetSessionStorage() core.Storage {
+	return m.session
 }
